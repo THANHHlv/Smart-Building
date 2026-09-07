@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.sql.bak
+pgdata/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# AI models
+*.pkl
+*.joblib
+*.h5
+!ai-service/models/.gitkeep
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+infrastructure/terraform/*.tfvars
+!infrastructure/terraform/*.tfvars.example
+
+# Ansible
+*.retry
+
+# Kubernetes secrets
+deployment/kubernetes/*-secret.yaml
+!deployment/kubernetes/*-secret.yaml.example
+
+# MinIO data
+minio-data/
+
+# Node (for frontend)
+node_modules/
+
+# Misc
+*.bak
+*.tmp
