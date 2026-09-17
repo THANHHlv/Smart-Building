@@ -1,11 +1,14 @@
 """Apartment API endpoints."""
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
+from app.models.user import User
 from app.schemas.apartment import (
     ApartmentCreate,
     ApartmentDetailResponse,
@@ -20,6 +23,7 @@ router = APIRouter(prefix="/apartments", tags=["Apartments"])
 
 @router.get("", response_model=PaginatedResponse)
 async def list_apartments(
+    _current_user: Annotated[User, Depends(get_current_user)],
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     floor_id: UUID | None = Query(default=None),
@@ -35,9 +39,10 @@ async def list_apartments(
 @router.post("", response_model=ApartmentResponse, status_code=201)
 async def create_apartment(
     data: ApartmentCreate,
+    _admin: Annotated[User, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new apartment."""
+    """Create a new apartment. Admin only."""
     service = ApartmentService(db)
     return await service.create(data)
 
@@ -45,6 +50,7 @@ async def create_apartment(
 @router.get("/{apartment_id}", response_model=ApartmentDetailResponse)
 async def get_apartment(
     apartment_id: UUID,
+    _current_user: Annotated[User, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
 ):
     """Get apartment details with devices."""
@@ -59,9 +65,10 @@ async def get_apartment(
 async def update_apartment(
     apartment_id: UUID,
     data: ApartmentUpdate,
+    _admin: Annotated[User, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Update an apartment."""
+    """Update an apartment. Admin only."""
     service = ApartmentService(db)
     apartment = await service.update(apartment_id, data)
     if not apartment:
@@ -72,9 +79,10 @@ async def update_apartment(
 @router.delete("/{apartment_id}", response_model=MessageResponse)
 async def delete_apartment(
     apartment_id: UUID,
+    _admin: Annotated[User, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Soft-delete an apartment."""
+    """Soft-delete an apartment. Admin only."""
     service = ApartmentService(db)
     apartment = await service.delete(apartment_id)
     if not apartment:

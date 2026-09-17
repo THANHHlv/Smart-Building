@@ -28,6 +28,13 @@ class DeviceUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class DeviceControlRequest(BaseModel):
+    """Payload for commanding a smart device."""
+
+    action: str = Field(..., pattern="^(turn_on|turn_off|toggle)$")
+
+
+
 class DeviceTypeResponse(BaseModel):
     """Schema for device type API responses."""
 

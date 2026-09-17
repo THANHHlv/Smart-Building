@@ -1,12 +1,15 @@
 """Sensor reading API endpoints."""
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user, require_admin, require_permission
 from app.core.database import get_db
+from app.models.user import User
 from app.schemas.common import MessageResponse, PaginatedResponse
 from app.schemas.reading import ReadingBatchCreate, ReadingCreate, ReadingResponse
 from app.services.reading_service import ReadingService
@@ -17,9 +20,10 @@ router = APIRouter(prefix="/readings", tags=["Readings"])
 @router.post("", response_model=ReadingResponse, status_code=201)
 async def create_reading(
     data: ReadingCreate,
+    _admin: Annotated[User, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Submit a single sensor reading."""
+    """Submit a single sensor reading. Admin only."""
     service = ReadingService(db)
     return await service.create(data)
 
@@ -27,9 +31,10 @@ async def create_reading(
 @router.post("/batch", response_model=MessageResponse, status_code=201)
 async def create_readings_batch(
     data: ReadingBatchCreate,
+    _admin: Annotated[User, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ):
-    """Submit multiple sensor readings in a single request."""
+    """Submit multiple sensor readings in a single request. Admin only."""
     service = ReadingService(db)
     count = await service.create_batch(data.readings)
     return MessageResponse(message=f"{count} readings created")
@@ -37,6 +42,7 @@ async def create_readings_batch(
 
 @router.get("", response_model=PaginatedResponse)
 async def query_readings(
+    _current_user: Annotated[User, Depends(require_permission("sensor.read"))],
     device_id: UUID | None = Query(default=None),
     metric: str | None = Query(default=None),
     start_time: datetime | None = Query(default=None),
@@ -66,6 +72,7 @@ async def query_readings(
 @router.get("/device/{device_id}", response_model=PaginatedResponse)
 async def get_device_readings(
     device_id: UUID,
+    _current_user: Annotated[User, Depends(get_current_user)],
     metric: str | None = Query(default=None),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),

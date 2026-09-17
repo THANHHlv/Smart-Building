@@ -1,5 +1,68 @@
 # AGENTS.md
 
+## 0. Active Agent Skills & Knowledge Configuration
+
+The agent MUST automatically load and enforce the appropriate domain guidelines and skills based on the active task, and MUST state which skills were referenced:
+
+### 0.0 Global Governance & Project Rules
+Loaded across ALL tasks as the primary constraint layer:
+- `.agent/skills/rules/` (Operational rules, code standards, and workflow guardrails)
+
+---
+
+### 0.1 Frontend, UI/UX & Creative Assets
+When working on UI components, layouts, typography, design assets, or presentations:
+- `.agents/skills/ui-ux-pro-max/` (Design intelligence, accessibility, UX patterns)
+- `.agents/skills/design-system/` (Three-layer tokens, component architecture)
+- `.agents/skills/ui-styling/` (Tailwind CSS, shadcn/ui integration)
+- `.agents/skills/design/` (Visual design fundamentals, layout composition)
+- `.agents/skills/brand/` (Tone of voice, branding assets, visual identity)
+- `.agents/skills/banner-design/` (Promotional assets, hero sections, media displays)
+- `.agents/skills/slides/` (HTML/CSS presentation decks, Chart.js visualizations)
+- `design-system/smart-building-cloud-platform/MASTER.md`
+
+**Core UI Directives:**
+1. **Semantic HTML First:** Use structured tags (`<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`, and `<table>` with `<caption>` and `scope`) before generic containers (`<div>`/`<span>`).
+2. **Design Language & Accessibility:** Match the dark technical theme defined in `MASTER.md` (WCAG AA/AAA compliance, strict focus rings `focus-visible:ring-2`, and accessible ARIA live states).
+3. **Animations & Micro-interactions:** Implement subtle UI motion (entry fades, pulse indicators for IoT stream telemetry, loading skeletons, and interactive states) without layout shift (CLS = 0).
+
+---
+
+### 0.2 Backend, API & Asynchronous Systems
+When building endpoints, background workers, event consumers, or business domain logic:
+- `.agent/skills/fastapi-pro/` (FastAPI, SQLAlchemy 2.0, Pydantic v2 validation)
+- `.agent/skills/async-python-patterns/` (Asyncio concurrency, non-blocking I/O)
+- `.agent/skills/architect-review/` (Clean architecture, DDD, domain layer boundaries)
+
+---
+
+### 0.3 Database & Reliability
+When designing schemas, Alembic migrations, optimizing queries, or managing backups:
+- `.agent/skills/database-admin/` (PostgreSQL 16+, WAL archiving, pgBackRest, HA, query profiling)
+
+---
+
+### 0.4 Cloud Infrastructure, DevOps & Security
+When working on IaC, cluster configurations, deployment pipelines, or security auditing:
+- `.agent/skills/cloud-architect/` (Multi-cloud infra design, disaster recovery)
+- `.agent/skills/terraform-specialist/` (Terraform modules, state integrity, HCL conventions)
+- `.agent/skills/kubernetes-architect/` (K8s manifests, probes, limits, self-healing)
+- `.agent/skills/grafana-dashboards/` (Prometheus metrics, Loki logs, dashboard specs)
+- `.agent/skills/github-actions-templates/` (Automated build, test, and release gates)
+- `.agent/skills/security-auditor/` (Threat modeling, secret hygiene, container security, OWASP)
+
+---
+
+### 0.5 AI & Telemetry Anomaly Detection
+When implementing telemetry pipelines or ML models:
+- `.agent/skills/ai-engineer/` (Isolation Forest, feature engineering, explainable numerical ML)
+
+---
+
+### 0.6 Execution Transparency Directive
+Whenever completing a non-trivial implementation, debugging session, or architectural review, the agent MUST include a concise metadata block at the top or bottom of the response:
+> `[Skills Applied: <comma-separated list of loaded skills or "None (Standard Base)">]`
+---
 ## 1. Project Identity
 
 Project: **Smart Building Cloud Platform**

@@ -52,9 +52,14 @@ async def setup_database():
         await conn.run_sync(Base.metadata.drop_all)
 
 
+from uuid import uuid4
+from app.core.security import create_access_token, hash_password
+from app.models.user import User
+
+
 @pytest_asyncio.fixture
-async def client() -> AsyncGenerator[AsyncClient, None]:
-    """Provide a test HTTP client with overridden DB dependency."""
+async def unauthenticated_client() -> AsyncGenerator[AsyncClient, None]:
+    """Provide an unauthenticated test HTTP client with overridden DB dependency."""
 
     async def override_get_db():
         async with testing_session_factory() as session:
@@ -72,3 +77,44 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    """Provide an admin-authenticated test HTTP client with overridden DB dependency."""
+
+    async def override_get_db():
+        async with testing_session_factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # Create test admin user and generate authorization token
+    admin_id = uuid4()
+    admin_email = f"testadmin_{admin_id.hex[:6]}@example.com"
+    async with testing_session_factory() as session:
+        admin_user = User(
+            id=admin_id,
+            email=admin_email,
+            hashed_password=hash_password("adminpass"),
+            full_name="Default Test Admin",
+            role="admin",
+            is_superuser=True,
+        )
+        session.add(admin_user)
+        await session.commit()
+
+    token = create_access_token(data={"sub": str(admin_id), "role": "admin"})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test", headers=headers) as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
+

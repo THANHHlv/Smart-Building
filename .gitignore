@@ -1,3 +1,11 @@
+# AI coding agents & IDE assistant tools
+.agent/
+.agents/
+.gemini/
+.claude/
+.cursor/
+.windsurf/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -13,13 +21,58 @@ build/
 .venv/
 venv/
 ENV/
+env/
 
-# Environment files
+# Environment & Secret files
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+!.env.*.example
+backend/.env
+frontend/.env
 
-# IDE
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.oxlintrc.cache
+*.local
+
+# Testing, Linting & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+.ruff_cache/
+.mypy_cache/
+.cache/
+
+# User uploads & Media storage
+uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
+temp/
+tmp/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Database & Persistent volumes
+*.sql.bak
+pgdata/
+minio-data/
+prometheus-data/
+grafana-data/
+loki-data/
+
+# IDE & OS Artifacts
 .vscode/
 .idea/
 *.swp
@@ -27,22 +80,10 @@ ENV/
 *~
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Docker
 docker-compose.override.yml
-
-# Database
-*.sql.bak
-pgdata/
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-
-# Logs
-*.log
-logs/
 
 # AI models
 *.pkl
@@ -63,12 +104,6 @@ infrastructure/terraform/*.tfvars
 # Kubernetes secrets
 deployment/kubernetes/*-secret.yaml
 !deployment/kubernetes/*-secret.yaml.example
-
-# MinIO data
-minio-data/
-
-# Node (for frontend)
-node_modules/
 
 # Misc
 *.bak

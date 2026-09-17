@@ -60,8 +60,17 @@ migrate-down: ## Rollback last migration
 migrate-new: ## Create new migration (usage: make migrate-new MSG="add users table")
 	cd backend && alembic revision --autogenerate -m "$(MSG)"
 
-seed: ## Seed database with sample data
-	cd backend && python -m app.seed
+seed: ## Seed database with rich demo data
+	cd backend && python scripts/seed_demo_data.py
+
+frontend-dev: ## Start React frontend dev server
+	cd frontend && npm run dev
+
+frontend-build: ## Build React frontend
+	cd frontend && npm run build
+
+simulate: ## Run IoT telemetry simulator CLI (e.g. 5 cycles, 2s interval)
+	cd backend && python scripts/iot_simulator.py 5 2
 
 # ---------------------------------------------------------------------------
 # Utilities
