@@ -171,7 +171,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                           </div>
                         </div>
                         <div className="text-3xl font-bold text-white relative z-10">
-                          {summary.total_overdue.toLocaleString()} ₫
+                          {summary.total_overdue.toLocaleString('vi-VN')} ₫
                         </div>
                         <div className="text-sm text-red-400 mt-2 relative z-10">
                           {summary.overdue_count} hoá đơn cần thanh toán gấp
@@ -187,7 +187,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                           </div>
                         </div>
                         <div className="text-3xl font-bold text-white relative z-10">
-                          {summary.total_due_soon.toLocaleString()} ₫
+                          {summary.total_due_soon.toLocaleString('vi-VN')} ₫
                         </div>
                         <div className="text-sm text-amber-400 mt-2 relative z-10">
                           {summary.due_soon_count} hoá đơn trong 7 ngày tới
@@ -202,7 +202,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                           </div>
                         </div>
                         <div className="text-3xl font-bold text-indigo-400">
-                          {summary.total_unpaid.toLocaleString()} ₫
+                          {summary.total_unpaid.toLocaleString('vi-VN')} ₫
                         </div>
                         <div className="text-sm text-gray-400 mt-2">
                           Thanh toán ngay để tránh phí trễ hạn
@@ -227,7 +227,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                             </div>
                             <div className="flex items-center space-x-6">
                               <div className="text-right">
-                                <div className="text-lg font-semibold text-white">{invoice.total_amount.toLocaleString()} ₫</div>
+                                <div className="text-lg font-semibold text-white">{invoice.total_amount.toLocaleString('vi-VN')} ₫</div>
                                 <div className={`text-sm ${invoice.status === 'overdue' ? 'text-red-400' : 'text-amber-400'}`}>
                                   {invoice.status === 'overdue' ? 'Quá Hạn' : 'Đang chờ'}
                                 </div>
@@ -281,7 +281,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                             </div>
                             {svc.default_price && (
                               <div className="text-right">
-                                <span className="text-white font-medium">{svc.default_price.toLocaleString()} ₫</span>
+                                <span className="text-white font-medium">{svc.default_price.toLocaleString('vi-VN')} ₫</span>
                                 <span className="text-xs text-gray-500"> / {svc.unit}</span>
                               </div>
                             )}
@@ -353,7 +353,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
                 <div key={idx} className="bg-[#2C2C2E] p-4 rounded-xl border border-white/5">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="text-white font-medium">{item.description}</h4>
-                    <span className="text-white font-semibold">{item.amount.toLocaleString()} ₫</span>
+                    <span className="text-white font-semibold">{item.amount.toLocaleString('vi-VN')} ₫</span>
                   </div>
                   {item.formula && (
                     <div className="text-sm text-gray-400 bg-black/20 p-2 rounded flex items-start space-x-2">
@@ -367,7 +367,7 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false 
 
             <div className="flex justify-between items-center border-t border-white/10 pt-4 mb-6">
               <span className="text-lg text-gray-300">Tổng cộng</span>
-              <span className="text-2xl font-bold text-white">{breakdown.total_amount.toLocaleString()} ₫</span>
+              <span className="text-2xl font-bold text-white">{breakdown.total_amount.toLocaleString('vi-VN')} ₫</span>
             </div>
 
             <div className="flex space-x-3">

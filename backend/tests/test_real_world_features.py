@@ -255,3 +255,63 @@ async def test_resident_dashboard_has_estimated_cost(client: AsyncClient, setup_
     assert "electricity_cost_vnd" in data["estimated_cost"]
     assert "water_cost_vnd" in data["estimated_cost"]
     assert "total_estimated_vnd" in data["estimated_cost"]
+
+
+@pytest.mark.asyncio
+async def test_assign_apartment_conflict_rejection(client: AsyncClient, setup_real_world_data):
+    """Admin cannot assign an occupied apartment to another resident without unassigning first."""
+    data = setup_real_world_data
+    admin_token = await _get_token(client, "rw.admin@example.com", "adminpass")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # apt1 is already assigned to rw.resident@example.com
+    apt1_id = str(data["apt1"].id)
+    new_user_id = str(data["new_resident"].id)
+
+    # 1. Attempt to assign occupied apt1 to new_resident -> 400 Bad Request
+    conflict_res = await client.put(
+        f"/api/v1/users/{new_user_id}/assign-apartment",
+        json={"apartment_id": apt1_id},
+        headers=headers,
+    )
+    assert conflict_res.status_code == 400
+    detail = conflict_res.json()["detail"]
+    assert "hiện đã được gán cho cư dân" in detail or "đã được gán" in detail
+
+    # 2. Unassign rw.resident from apt1
+    resident_id = str(data["resident"].id)
+    unassign_res = await client.put(
+        f"/api/v1/users/{resident_id}/unassign-apartment",
+        headers=headers,
+    )
+    assert unassign_res.status_code == 200
+    assert unassign_res.json()["apartment_id"] is None
+
+    # 3. Now assigning apt1 to new_resident succeeds
+    assign_res = await client.put(
+        f"/api/v1/users/{new_user_id}/assign-apartment",
+        json={"apartment_id": apt1_id},
+        headers=headers,
+    )
+    assert assign_res.status_code == 200
+    assert assign_res.json()["apartment_id"] == apt1_id
+    assert assign_res.json()["apartment_unit"] == "201"
+
+
+@pytest.mark.asyncio
+async def test_duplicate_unit_number_creation_rejection(client: AsyncClient, setup_real_world_data):
+    """Creating an apartment with duplicate unit_number on same floor should be rejected."""
+    data = setup_real_world_data
+    admin_token = await _get_token(client, "rw.admin@example.com", "adminpass")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    floor_id = str(data["apt1"].floor_id)
+
+    # apt1 already has unit_number "201" on this floor
+    dup_res = await client.post(
+        "/api/v1/apartments",
+        json={"floor_id": floor_id, "unit_number": "201", "area_sqm": 70.0},
+        headers=headers,
+    )
+    assert dup_res.status_code == 400
+    assert "đã tồn tại trên tầng này" in dup_res.json()["detail"]

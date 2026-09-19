@@ -19,7 +19,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
       const res = await api.triggerTick();
       setStatusMessage({
         type: 'success',
-        text: `✓ ${res.message} lúc ${new Date(res.timestamp).toLocaleTimeString()}`,
+        text: `✓ ${res.message} lúc ${new Date(res.timestamp).toLocaleTimeString('vi-VN')}`,
       });
       onEventTriggered();
     } catch (err: any) {
@@ -35,7 +35,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
       const res = await api.injectAnomaly(type);
       setStatusMessage({
         type: 'anomaly',
-        text: `🚨 [${res.alert_severity.toUpperCase()}] ${res.alert_title} — Anomaly Alert Dispatched to Kafka & PostgreSQL!`,
+        text: `🚨 [${res.alert_severity.toUpperCase()}] ${res.alert_title} — Đã phát cảnh báo bất thường đến Kafka & PostgreSQL!`,
       });
       onEventTriggered();
     } catch (err: any) {
@@ -97,7 +97,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
               >
                 Thử Nghiệm Nhịp Sống & AI Anomaly Lab
               </h2>
-              <span className="badge badge-medium">Kafka Event Stream</span>
+              <span className="badge badge-medium">Luồng Sự Kiện Kafka</span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
               Mô phỏng chu kỳ phát tín hiệu cảm biến hoặc kích hoạt sự cố mẫu để quan sát phản hồi của trợ lý AI.
@@ -108,7 +108,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
         {/* Action Controls */}
         <div
           role="group"
-          aria-label="Simulator Action Controls"
+          aria-label="Bảng điều khiển mô phỏng sự cố"
           style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
         >
           {/* Normal Tick */}
@@ -125,7 +125,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
             ) : (
               <Play size={15} aria-hidden="true" />
             )}
-            <span>{loadingAction === 'tick' ? 'Broadcasting...' : 'Emit Telemetry Cycle'}</span>
+            <span>{loadingAction === 'tick' ? 'Đang phát...' : 'Phát Chu Kỳ Telemetry'}</span>
           </button>
 
           {/* Anomaly: Power Spike */}
@@ -142,7 +142,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
             ) : (
               <Zap size={15} aria-hidden="true" />
             )}
-            <span>{loadingAction === 'power_spike' ? 'Injecting...' : 'Inject Power Spike (18 kW)'}</span>
+            <span>{loadingAction === 'power_spike' ? 'Đang tạo...' : 'Tạo Đột Biến Điện (18 kW)'}</span>
           </button>
 
           {/* Anomaly: Water Leak */}
@@ -159,7 +159,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
             ) : (
               <Waves size={15} aria-hidden="true" />
             )}
-            <span>{loadingAction === 'water_leak' ? 'Injecting...' : 'Inject Water Leak (28 L/min)'}</span>
+            <span>{loadingAction === 'water_leak' ? 'Đang tạo...' : 'Tạo Rò Rỉ Nước (28 L/phút)'}</span>
           </button>
 
           {/* Anomaly: Overheat */}
@@ -179,7 +179,7 @@ export const SimulatorControl: React.FC<SimulatorControlProps> = ({ onEventTrigg
             ) : (
               <Flame size={15} aria-hidden="true" />
             )}
-            <span>{loadingAction === 'overheat' ? 'Injecting...' : 'Inject Overheat (65°C)'}</span>
+            <span>{loadingAction === 'overheat' ? 'Đang tạo...' : 'Tạo Quá Nhiệt (65°C)'}</span>
           </button>
         </div>
       </div>

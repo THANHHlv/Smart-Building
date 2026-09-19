@@ -40,14 +40,14 @@ async def login(
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Email hoặc mật khẩu không chính xác",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account has been suspended or deactivated",
+            detail="Tài khoản đã bị tạm khóa hoặc vô hiệu hóa",
         )
 
     # Build token
@@ -88,7 +88,7 @@ async def register(
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this email address already exists",
+            detail="Địa chỉ email này đã được đăng ký trong hệ thống",
         )
 
     # Create the user with default resident role

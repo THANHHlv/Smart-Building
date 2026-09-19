@@ -1,8 +1,9 @@
 """Apartment model."""
 
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Uuid
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -12,6 +13,9 @@ class Apartment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     """Represents an apartment unit within a floor."""
 
     __tablename__ = "apartments"
+    __table_args__ = (
+        UniqueConstraint("floor_id", "unit_number", name="uq_apartment_floor_unit"),
+    )
 
     floor_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -19,7 +23,7 @@ class Apartment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
     )
     unit_number: Mapped[str] = mapped_column(String(50), nullable=False)
-    area_sqm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    area_sqm: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
     num_rooms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     resident_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

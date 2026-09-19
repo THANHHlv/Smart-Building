@@ -141,7 +141,7 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
   const getRoleBadgeStyle = (roleName: string) => {
     switch (roleName) {
       case 'super_admin':
-        return { bg: 'rgba(200, 82, 82, 0.14)', color: '#C85252', border: '1px solid rgba(200, 82, 82, 0.35)', label: 'Super Admin' };
+        return { bg: 'rgba(200, 82, 82, 0.14)', color: '#C85252', border: '1px solid rgba(200, 82, 82, 0.35)', label: 'Quản Trị Tối Cao' };
       case 'building_admin':
         return { bg: 'rgba(217, 107, 67, 0.14)', color: '#D96B43', border: '1px solid rgba(217, 107, 67, 0.35)', label: 'BQL Tòa Nhà' };
       case 'accountant':
@@ -291,7 +291,7 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm user theo tên, email, vai trò..."
+              placeholder="Tìm người dùng theo tên, email, vai trò..."
               style={{
                 width: '100%',
                 padding: '7px 12px 7px 32px',

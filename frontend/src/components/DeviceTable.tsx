@@ -218,7 +218,7 @@ export const DeviceTable: React.FC<DeviceTableProps> = ({ devices, isLoading = f
                   <td style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>
                     <time dateTime={device.last_seen_at || ''}>
                       {device.last_seen_at
-                        ? new Date(device.last_seen_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        ? new Date(device.last_seen_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                         : 'Vừa gửi (Live)'}
                     </time>
                   </td>

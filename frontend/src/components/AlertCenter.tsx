@@ -246,7 +246,7 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ alerts, onAlertUpdated
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Clock size={12} aria-hidden="true" />
                         <time dateTime={alert.created_at}>
-                          {new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(alert.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                         </time>
                       </span>
                       <span>Khu vực: {alert.source || 'Căn hộ'}</span>

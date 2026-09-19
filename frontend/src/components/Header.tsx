@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
     const updateTime = () => {
       const now = new Date();
       setTimeStr(
-        now.toLocaleTimeString('en-US', {
+        now.toLocaleTimeString('vi-VN', {
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
@@ -240,7 +240,7 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <WifiOff size={14} color="#64748b" aria-hidden="true" />
             )}
-            <span>{autoRefresh ? 'Live Sync 5s' : 'Sync Paused'}</span>
+            <span>{autoRefresh ? 'Đồng bộ 5s' : 'Đã tạm dừng'}</span>
           </button>
 
           {/* Community Bulletin Quick Access */}
@@ -291,7 +291,7 @@ export const Header: React.FC<HeaderProps> = ({
             style={{ padding: '6px 14px', fontSize: '0.8rem' }}
           >
             <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
-            <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            <span>{isRefreshing ? 'Đang đồng bộ...' : 'Làm mới'}</span>
           </button>
 
           {/* Logout Button */}
@@ -349,7 +349,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {currentUser?.full_name || 'User'}
+              {currentUser?.full_name || 'Cư Dân'}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
               {currentUser?.email}
@@ -391,7 +391,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`badge ${isAdmin ? 'badge-telemetry' : 'badge-healthy'}`}
             style={{ fontSize: '0.7rem', padding: '3px 10px' }}
           >
-            {isAdmin ? '👑 Administrator' : '🏠 Cư Dân'}
+            {isAdmin ? '👑 Ban Quản Trị' : '🏠 Cư Dân'}
           </span>
           {currentUser?.apartment_unit && (
             <span

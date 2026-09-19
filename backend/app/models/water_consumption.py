@@ -2,8 +2,9 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Uuid
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDPrimaryKeyMixin
@@ -29,4 +30,5 @@ class WaterConsumption(Base, UUIDPrimaryKeyMixin):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    value_liters: Mapped[float] = mapped_column(Float, nullable=False)
+    value_liters: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+

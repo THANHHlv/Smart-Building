@@ -1557,7 +1557,13 @@ export const ServiceRequestHub: React.FC<ServiceRequestHubProps> = ({
                                     textTransform: 'uppercase',
                                   }}
                                 >
-                                  {r.ticket_status}
+                                  {r.ticket_status === 'resolved' || r.ticket_status === 'closed'
+                                    ? 'Đã xử lý'
+                                    : r.ticket_status === 'in_progress'
+                                    ? 'Đang xử lý'
+                                    : r.ticket_status === 'assigned'
+                                    ? 'Đã điều phối'
+                                    : 'Mới tiếp nhận'}
                                 </span>
                               </div>
                             </div>

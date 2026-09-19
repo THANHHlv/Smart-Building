@@ -44,7 +44,7 @@ def get_resident_apartment_id(user: User) -> uuid.UUID:
     if not user.apartment_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User is not assigned to any apartment.",
+            detail="Tài khoản chưa được gán cho căn hộ nào.",
         )
     return user.apartment_id
 
@@ -142,7 +142,7 @@ async def get_invoice_breakdown(
     invoice = result.scalar_one_or_none()
 
     if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy hoá đơn")
 
     items = []
     for item in invoice.items:
@@ -195,10 +195,10 @@ async def confirm_manual_payment(
     result = await db.execute(stmt)
     invoice = result.scalar_one_or_none()
     if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy hoá đơn")
 
     if invoice.status == InvoiceStatus.PAID:
-        raise HTTPException(status_code=400, detail="Invoice already paid")
+        raise HTTPException(status_code=400, detail="Hoá đơn đã được thanh toán")
 
     # Check for existing pending confirmation
     existing_stmt = select(ManualConfirmation).where(
@@ -207,12 +207,12 @@ async def confirm_manual_payment(
     )
     existing = (await db.execute(existing_stmt)).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=400, detail="A manual confirmation is already pending verification.")
+        raise HTTPException(status_code=400, detail="Đã có yêu cầu xác nhận thủ công đang chờ kiểm tra.")
 
     try:
         method_enum = ManualPaymentMethod(req.method)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid payment method")
+        raise HTTPException(status_code=400, detail="Phương thức thanh toán không hợp lệ")
 
     confirmation = ManualConfirmation(
         invoice_id=invoice_id,
@@ -271,7 +271,7 @@ async def mark_notification_as_read(
     service = NotificationService(db)
     result = await service.mark_as_read(notification_id=notification_id, user_id=current_user.id)
     if not result:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy thông báo")
     return result
 
 

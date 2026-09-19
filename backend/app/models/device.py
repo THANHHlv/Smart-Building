@@ -2,6 +2,7 @@
 
 import enum
 import uuid
+from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -45,8 +46,8 @@ class Device(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         default=DeviceStatus.OFFLINE,
         nullable=False,
     )
-    installed_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_seen_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    installed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

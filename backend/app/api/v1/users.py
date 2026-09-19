@@ -120,10 +120,36 @@ async def assign_apartment(
     if not apartment:
         raise HTTPException(status_code=404, detail="Apartment not found")
 
+    # Check if this apartment is already assigned to another active resident
+    conflict_stmt = select(User).where(
+        User.apartment_id == payload.apartment_id,
+        User.id != user_id,
+        User.is_active.is_(True),
+    )
+    existing_occupant = (await db.execute(conflict_stmt)).scalar_one_or_none()
+    if existing_occupant:
+        occ_name = existing_occupant.full_name or existing_occupant.email
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Căn hộ {apartment.unit_number} hiện đã được gán cho cư dân '{occ_name}'. "
+                "Vui lòng hủy gán cư dân cũ trước khi gán cho người khác."
+            ),
+        )
+
+    # If user was previously assigned to a different apartment, clean up old apartment resident_name
+    if user.apartment_id and user.apartment_id != payload.apartment_id:
+        old_apt_stmt = select(Apartment).where(Apartment.id == user.apartment_id)
+        old_apt = (await db.execute(old_apt_stmt)).scalar_one_or_none()
+        if old_apt and (old_apt.resident_name == user.full_name or old_apt.resident_name == user.email):
+            old_apt.resident_name = None
+
     user.apartment_id = payload.apartment_id
-    # Also update apartment resident_name if not set
-    if user.full_name and not apartment.resident_name:
+    # Sync apartment resident_name
+    if user.full_name:
         apartment.resident_name = user.full_name
+    elif not apartment.resident_name:
+        apartment.resident_name = user.email
 
     await db.commit()
     await db.refresh(user)
@@ -157,6 +183,12 @@ async def unassign_apartment(
     user = (await db.execute(stmt)).scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user.apartment_id:
+        old_apt_stmt = select(Apartment).where(Apartment.id == user.apartment_id)
+        old_apt = (await db.execute(old_apt_stmt)).scalar_one_or_none()
+        if old_apt and (old_apt.resident_name == user.full_name or old_apt.resident_name == user.email):
+            old_apt.resident_name = None
 
     user.apartment_id = None
     await db.commit()

@@ -122,7 +122,7 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
 
   const formatChartTime = (iso: string) => {
     try {
-      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     } catch {
       return iso;
     }
@@ -879,12 +879,12 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{a.title}</h4>
                     <span className={`badge ${a.severity === 'critical' ? 'badge-critical' : 'badge-high'}`} style={{ fontSize: '0.65rem' }}>
-                      {a.severity.toUpperCase()}
+                      {a.severity === 'critical' ? 'KHẨN CẤP' : a.severity === 'high' ? 'ƯU TIÊN CAO' : a.severity === 'medium' ? 'TRUNG BÌNH' : 'GHI NHẬN'}
                     </span>
                   </div>
                   {a.message && <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{a.message}</p>}
                   <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                    {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Trạng thái: {a.status}
+                    {new Date(a.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} • Trạng thái: {a.status === 'resolved' ? 'Đã xử lý' : a.status === 'acknowledged' ? 'Đã tiếp nhận' : 'Đang theo dõi'}
                   </span>
                 </article>
               ))

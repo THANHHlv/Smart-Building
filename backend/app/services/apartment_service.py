@@ -3,6 +3,8 @@
 import math
 from uuid import UUID
 
+from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -22,6 +24,19 @@ class ApartmentService:
 
     async def create(self, data: ApartmentCreate) -> Apartment:
         """Create a new apartment."""
+        # Check for duplicate unit_number on the same floor
+        stmt = select(Apartment).where(
+            Apartment.floor_id == data.floor_id,
+            Apartment.unit_number == data.unit_number,
+            Apartment.is_active.is_(True),
+        )
+        existing = (await self.repo.session.execute(stmt)).scalar_one_or_none()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Căn hộ số {data.unit_number} đã tồn tại trên tầng này.",
+            )
+
         apartment = Apartment(**data.model_dump())
         result = await self.repo.create(apartment)
         logger.info(
@@ -65,6 +80,23 @@ class ApartmentService:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return apartment
+
+        if "unit_number" in update_data or "floor_id" in update_data:
+            target_floor_id = update_data.get("floor_id", apartment.floor_id)
+            target_unit = update_data.get("unit_number", apartment.unit_number)
+            stmt = select(Apartment).where(
+                Apartment.floor_id == target_floor_id,
+                Apartment.unit_number == target_unit,
+                Apartment.id != id,
+                Apartment.is_active.is_(True),
+            )
+            existing = (await self.repo.session.execute(stmt)).scalar_one_or_none()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Căn hộ số {target_unit} đã tồn tại trên tầng này.",
+                )
+
         result = await self.repo.update(apartment, update_data)
         logger.info("apartment_updated", apartment_id=str(id))
         return result

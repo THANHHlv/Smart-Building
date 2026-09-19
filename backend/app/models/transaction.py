@@ -9,8 +9,10 @@ but every change is also recorded in the audit log.
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -54,6 +56,7 @@ class Transaction(Base, UUIDPrimaryKeyMixin):
             postgresql_where="provider_txn_id IS NOT NULL",
         ),
         Index("ix_transactions_idempotency_key", "idempotency_key", unique=True),
+        CheckConstraint("amount > 0", name="ck_transaction_amount_positive"),
     )
 
     invoice_id: Mapped[uuid.UUID] = mapped_column(
@@ -71,7 +74,7 @@ class Transaction(Base, UUIDPrimaryKeyMixin):
     idempotency_key: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False
     )
-    amount: Mapped[float] = mapped_column(
+    amount: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False
     )
     currency: Mapped[str] = mapped_column(

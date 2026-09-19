@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import date
 
-from sqlalchemy import Date, Enum, ForeignKey, Index, String, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Index, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -34,11 +34,12 @@ class BillingCycle(Base, UUIDPrimaryKeyMixin, TimestampMixin):
             "apartment_id",
             "period_start",
         ),
+        CheckConstraint("period_end > period_start", name="ck_billing_cycle_period_valid"),
     )
 
     apartment_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("apartments.id", ondelete="CASCADE"),
+        ForeignKey("apartments.id", ondelete="RESTRICT"),
         nullable=False,
     )
     period_start: Mapped[date] = mapped_column(Date, nullable=False)

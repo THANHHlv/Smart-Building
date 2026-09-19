@@ -23,6 +23,7 @@ from app.models.energy_consumption import EnergyConsumption
 from app.models.floor import Floor
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.invoice_item import InvoiceItem, ServiceType
+from app.models.late_fee_policy import LateFeePolicy
 from app.models.water_consumption import WaterConsumption
 from app.repositories.billing_repo import BillingRepository
 from app.repositories.invoice_repo import InvoiceRepository
@@ -85,6 +86,40 @@ def calculate_water_cost(liters: float, price_per_m3: float | None = None) -> in
     if price_per_m3 is None:
         price_per_m3 = settings.billing_water_price_per_m3
     return int(round((liters / 1000.0) * price_per_m3))
+
+
+def calculate_late_fee(
+    principal_amount: float,
+    due_date: date,
+    policy: LateFeePolicy | None = None,
+    as_of_date: date | None = None,
+) -> int:
+    """Calculate late payment penalty based on building's LateFeePolicy.
+
+    Formula:
+        late_fee = principal_amount * daily_rate_percent * billable_overdue_days
+        billable_overdue_days = max(0, (as_of_date - due_date).days - grace_period_days)
+
+    Rules:
+        - No late fee if payment is within due_date or within grace_period_days.
+        - Rate and grace period strictly adhere to building's LateFeePolicy.
+        - Result is rounded to nearest integer VNĐ (no decimals).
+    """
+    if as_of_date is None:
+        as_of_date = date.today()
+    if as_of_date <= due_date or principal_amount <= 0:
+        return 0
+
+    grace_days = policy.grace_period_days if policy else 5
+    daily_rate = float(policy.daily_rate_percent) if policy else 0.0005
+
+    overdue_days = (as_of_date - due_date).days
+    billable_days = overdue_days - grace_days
+    if billable_days <= 0:
+        return 0
+
+    fee = principal_amount * daily_rate * billable_days
+    return int(round(fee))
 
 
 # ---------------------------------------------------------------------------

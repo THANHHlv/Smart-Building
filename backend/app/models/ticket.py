@@ -10,7 +10,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, Uuid, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer, JSON, String, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -93,6 +93,7 @@ class Ticket(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Index("ix_tickets_assigned_to", "assigned_to"),
         Index("ix_tickets_created_at", "created_at"),
         Index("ix_tickets_due_at", "due_at"),
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_ticket_rating_range"),
     )
 
     source: Mapped[TicketSource] = mapped_column(
@@ -110,7 +111,11 @@ class Ticket(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ForeignKey("devices.id", ondelete="SET NULL"),
         nullable=True,
     )
-    category: Mapped[str] = mapped_column(String(50), default="general", nullable=False)
+    category: Mapped[TicketCategory] = mapped_column(
+        Enum(TicketCategory, name="ticket_category", native_enum=False),
+        default=TicketCategory.GENERAL,
+        nullable=False,
+    )
     priority: Mapped[TicketPriority] = mapped_column(
         Enum(TicketPriority, name="ticket_priority", native_enum=False),
         default=TicketPriority.MEDIUM,

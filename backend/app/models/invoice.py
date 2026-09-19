@@ -3,8 +3,10 @@
 import enum
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     DateTime,
     Enum,
@@ -37,11 +39,12 @@ class Invoice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __table_args__ = (
         Index("ix_invoices_apartment_status", "apartment_id", "status"),
         Index("ix_invoices_due_date", "due_date"),
+        CheckConstraint("total_amount >= 0", name="ck_invoice_total_non_negative"),
     )
 
     apartment_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey("apartments.id", ondelete="CASCADE"),
+        ForeignKey("apartments.id", ondelete="RESTRICT"),
         nullable=False,
     )
     billing_cycle_id: Mapped[uuid.UUID] = mapped_column(
@@ -52,7 +55,7 @@ class Invoice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     invoice_number: Mapped[str] = mapped_column(
         String(50), unique=True, nullable=False
     )
-    total_amount: Mapped[float] = mapped_column(
+    total_amount: Mapped[Decimal] = mapped_column(
         Numeric(12, 2), nullable=False, default=0
     )
     currency: Mapped[str] = mapped_column(
@@ -79,3 +82,4 @@ class Invoice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     transactions = relationship(
         "Transaction", back_populates="invoice", lazy="selectin",
     )
+

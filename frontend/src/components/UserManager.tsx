@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Building2,
@@ -38,9 +38,58 @@ export const UserManager: React.FC<UserManagerProps> = ({
   // Modal assign apartment state
   const [selectedUser, setSelectedUser] = useState<UserAdminItem | null>(null);
   const [assigningAptId, setAssigningAptId] = useState<string>('');
+  const [onlyVacantFilter, setOnlyVacantFilter] = useState<boolean>(true);
   const [isAssigning, setIsAssigning] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Map apartment_id -> UserAdminItem (active occupant)
+  const assignedApartmentMap = useMemo(() => {
+    const map = new Map<string, UserAdminItem>();
+    users.forEach((u) => {
+      if (u.apartment_id && u.is_active && !map.has(u.apartment_id)) {
+        map.set(u.apartment_id, u);
+      }
+    });
+    return map;
+  }, [users]);
+
+  // Set of apartment_ids that are assigned to more than 1 user (duplicate data detection)
+  const duplicateApartmentIds = useMemo(() => {
+    const counts = new Map<string, number>();
+    users.forEach((u) => {
+      if (u.apartment_id && u.is_active) {
+        counts.set(u.apartment_id, (counts.get(u.apartment_id) || 0) + 1);
+      }
+    });
+    const dupes = new Set<string>();
+    counts.forEach((cnt, aptId) => {
+      if (cnt > 1) dupes.add(aptId);
+    });
+    return dupes;
+  }, [users]);
+
+  const vacantApartmentsCount = useMemo(() => {
+    return apartments.filter((apt) => !assignedApartmentMap.has(apt.id)).length;
+  }, [apartments, assignedApartmentMap]);
+
+  const displayApartments = useMemo(() => {
+    if (!onlyVacantFilter) return apartments;
+    return apartments.filter((apt) => {
+      const occupant = assignedApartmentMap.get(apt.id);
+      return !occupant || (selectedUser && occupant.id === selectedUser.id);
+    });
+  }, [apartments, onlyVacantFilter, assignedApartmentMap, selectedUser]);
+
+  const handleOpenAssignModal = (user: UserAdminItem) => {
+    setSelectedUser(user);
+    if (user.apartment_id) {
+      setAssigningAptId(user.apartment_id);
+    } else {
+      const firstVacant = apartments.find((a) => !assignedApartmentMap.has(a.id));
+      setAssigningAptId(firstVacant ? firstVacant.id : '');
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -73,6 +122,15 @@ export const UserManager: React.FC<UserManagerProps> = ({
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser || !assigningAptId) return;
+
+    // Check client-side occupant conflict
+    const occupant = assignedApartmentMap.get(assigningAptId);
+    if (occupant && occupant.id !== selectedUser.id) {
+      setActionError(
+        `Căn hộ này hiện đã được gán cho cư dân '${occupant.full_name || occupant.email}'. Vui lòng chọn căn hộ trống!`
+      );
+      return;
+    }
 
     try {
       setIsAssigning(true);
@@ -290,7 +348,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Căn hộ trống sẵn sàng:</span>
             <strong style={{ color: '#38bdf8', fontSize: '1rem', fontFamily: 'var(--font-mono)' }}>
-              {apartments.length} căn hộ
+              {vacantApartmentsCount} / {apartments.length} căn hộ
             </strong>
           </div>
         </div>
@@ -420,6 +478,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
               <tbody>
                 {filteredUsers.map((user) => {
                   const hasApartment = !!user.apartment_id;
+                  const isDuplicateApartment = Boolean(user.apartment_id && duplicateApartmentIds.has(user.apartment_id));
                   return (
                     <tr
                       key={user.id}
@@ -449,16 +508,39 @@ export const UserManager: React.FC<UserManagerProps> = ({
 
                       <td style={{ padding: '14px 10px' }}>
                         {hasApartment ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Home size={15} color="#38bdf8" />
-                            <div>
-                              <strong style={{ color: '#38bdf8', fontSize: '0.85rem' }}>
-                                Căn {user.apartment_unit}
-                              </strong>
-                              <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '6px' }}>
-                                ({user.building_name || 'Tòa Skyline'})
-                              </span>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Home size={15} color="#38bdf8" />
+                              <div>
+                                <strong style={{ color: '#38bdf8', fontSize: '0.85rem' }}>
+                                  Căn {user.apartment_unit}
+                                </strong>
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '6px' }}>
+                                  ({user.building_name || 'Tòa Skyline'})
+                                </span>
+                              </div>
                             </div>
+                            {isDuplicateApartment && (
+                              <div
+                                style={{
+                                  marginTop: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '2px 8px',
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                                  borderRadius: '4px',
+                                  color: '#f87171',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 600,
+                                }}
+                                title="Căn hộ này đang bị gán trùng cho nhiều hơn 1 tài khoản! Hãy hủy gán hoặc đổi căn hộ cho cư dân."
+                              >
+                                <AlertCircle size={11} />
+                                <span>Trùng với cư dân khác!</span>
+                              </div>
+                            )}
                           </div>
                         ) : user.role === 'resident' ? (
                           <span
@@ -491,10 +573,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
                           {user.role === 'resident' && (
                             <>
                               <button
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setAssigningAptId(user.apartment_id || (apartments[0]?.id || ''));
-                                }}
+                                onClick={() => handleOpenAssignModal(user)}
                                 className="btn-secondary"
                                 style={{
                                   padding: '6px 12px',
@@ -618,17 +697,36 @@ export const UserManager: React.FC<UserManagerProps> = ({
 
               <form onSubmit={handleAssignSubmit}>
                 <div style={{ marginBottom: '20px' }}>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.85rem',
-                      color: '#cbd5e1',
-                      fontWeight: 600,
-                      marginBottom: '8px',
-                    }}
-                  >
-                    Chọn Căn Hộ Muốn Gán:
-                  </label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label
+                      style={{
+                        fontSize: '0.85rem',
+                        color: '#cbd5e1',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Chọn Căn Hộ Muốn Gán:
+                    </label>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '0.78rem',
+                        color: '#38bdf8',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={onlyVacantFilter}
+                        onChange={(e) => setOnlyVacantFilter(e.target.checked)}
+                        style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                      />
+                      <span>Chỉ hiện căn hộ còn trống ({vacantApartmentsCount})</span>
+                    </label>
+                  </div>
                   <select
                     value={assigningAptId}
                     onChange={(e) => setAssigningAptId(e.target.value)}
@@ -645,11 +743,34 @@ export const UserManager: React.FC<UserManagerProps> = ({
                     }}
                   >
                     <option value="">-- Chọn căn hộ --</option>
-                    {apartments.map((apt) => (
-                      <option key={apt.id} value={apt.id}>
-                        Căn {apt.unit_number} (Tầng {apt.floor?.floor_number || 1} • {apt.area_sqm || 75} m²)
-                      </option>
-                    ))}
+                    {displayApartments.map((apt) => {
+                      const occupant = assignedApartmentMap.get(apt.id);
+                      const isOccupiedByOther = occupant && occupant.id !== selectedUser?.id;
+                      const isCurrentlyMine = occupant && occupant.id === selectedUser?.id;
+
+                      let label = `Căn ${apt.unit_number} (Tầng ${apt.floor?.floor_number || 1} • ${apt.area_sqm || 75} m²)`;
+                      if (isCurrentlyMine) {
+                        label += ' — [Hiện tại đang ở căn này]';
+                      } else if (isOccupiedByOther) {
+                        label += ` — [ĐÃ GÁN: ${occupant.full_name || occupant.email}] (Đã có người ở)`;
+                      } else {
+                        label += ' — [Trống - Sẵn sàng]';
+                      }
+
+                      return (
+                        <option
+                          key={apt.id}
+                          value={apt.id}
+                          disabled={Boolean(isOccupiedByOther)}
+                          style={{
+                            color: isOccupiedByOther ? '#94a3b8' : isCurrentlyMine ? '#38bdf8' : '#4ade80',
+                            background: '#0f172a',
+                          }}
+                        >
+                          {label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -671,7 +792,14 @@ export const UserManager: React.FC<UserManagerProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isAssigning || !assigningAptId}
+                    disabled={
+                      isAssigning ||
+                      !assigningAptId ||
+                      Boolean(
+                        assignedApartmentMap.get(assigningAptId) &&
+                        assignedApartmentMap.get(assigningAptId)?.id !== selectedUser?.id
+                      )
+                    }
                     className="btn-primary"
                     style={{
                       padding: '10px 20px',

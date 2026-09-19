@@ -221,7 +221,7 @@ export const KpiGrid: React.FC<KpiGridProps> = ({ overview, energy, water, isLoa
               </span>
             </div>
             <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Tháng này: {Math.round(energy?.total_kwh_this_month ?? 0).toLocaleString()} kWh
+              Tháng này: {Math.round(energy?.total_kwh_this_month ?? 0).toLocaleString('vi-VN')} kWh
             </div>
           </div>
           <div

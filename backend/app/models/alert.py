@@ -2,6 +2,7 @@
 
 import enum
 import uuid
+from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,6 +33,9 @@ class Alert(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "alerts"
     __table_args__ = (
         Index("ix_alerts_created_at", "created_at"),
+        Index("ix_alerts_device_id", "device_id"),
+        Index("ix_alerts_apartment_id", "apartment_id"),
+        Index("ix_alerts_status", "status"),
     )
 
     device_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -57,6 +61,7 @@ class Alert(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(100), nullable=False, default="system")
-    resolved_at: Mapped[str | None] = mapped_column(
+    resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
