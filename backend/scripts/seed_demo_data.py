@@ -39,6 +39,8 @@ from app.models.ticket import (
 )
 from app.models.user import User
 from app.models.water_consumption import WaterConsumption
+from app.models.service_request import ServiceRequest, Amenity, AmenityBooking
+from app.models.announcement import Announcement, AnnouncementRead
 
 
 async def seed_data():
@@ -47,8 +49,13 @@ async def seed_data():
 
     async with async_session_factory() as session:
         # 1. Clean existing records in reverse dependency order
-        print("[1/9] Cleaning old demo data...")
+        print("[1/10] Cleaning old demo data...")
         await session.execute(delete(UserRole))
+        await session.execute(delete(AnnouncementRead))
+        await session.execute(delete(Announcement))
+        await session.execute(delete(AmenityBooking))
+        await session.execute(delete(Amenity))
+        await session.execute(delete(ServiceRequest))
         await session.execute(delete(TicketStatusHistory))
         await session.execute(delete(TicketComment))
         await session.execute(delete(TicketAttachment))
@@ -663,6 +670,169 @@ async def seed_data():
         session.add_all(user_role_mappings)
         await session.commit()
         print(f"   Assigned {len(user_role_mappings)} RBAC user role permissions.")
+
+        # 10. Seed Amenities, Announcements & Service Requests
+        print("[10/10] Seeding Amenities, Community Announcements & Service Requests...")
+        demo_amenities = [
+            Amenity(
+                id=uuid4(),
+                building_id=building.id,
+                name="Phòng Sinh Hoạt Cộng Đồng",
+                description="Không gian đa năng sức chứa 30 người dành cho hội họp cư dân, sinh nhật, câu lạc bộ sách.",
+                capacity=30,
+                available_slots=["08:00 - 10:00", "10:00 - 12:00", "14:00 - 16:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00"],
+                requires_approval=True,
+                is_active=True,
+            ),
+            Amenity(
+                id=uuid4(),
+                building_id=building.id,
+                name="Khu Vực BBQ Sân Thượng Tầng 25",
+                description="Khu vực nướng ngoài trời hướng nhìn toàn cảnh thành phố, trang bị sẵn 2 bếp nướng điện âm và bàn tiệc.",
+                capacity=15,
+                available_slots=["11:00 - 14:00", "17:00 - 20:00", "20:00 - 23:00"],
+                requires_approval=False,
+                is_active=True,
+            ),
+            Amenity(
+                id=uuid4(),
+                building_id=building.id,
+                name="Sân Chơi & Vui Chơi Trẻ Em",
+                description="Khu vui chơi liên hoàn trong nhà có sàn cao su chống va đập, cầu trượt và nhà bóng sạch khuẩn.",
+                capacity=20,
+                available_slots=["08:00 - 10:00", "10:00 - 12:00", "15:00 - 17:00", "17:00 - 19:00", "19:00 - 21:00"],
+                requires_approval=False,
+                is_active=True,
+            ),
+            Amenity(
+                id=uuid4(),
+                building_id=building.id,
+                name="Sân Pickleball & Bóng Bàn Tầng 5",
+                description="Sân thể thao mặt sàn cao cấp tiêu chuẩn, có đèn chiếu sáng ban đêm và lưới thi đấu.",
+                capacity=8,
+                available_slots=["06:00 - 08:00", "08:00 - 10:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00"],
+                requires_approval=False,
+                is_active=True,
+            ),
+        ]
+        session.add_all(demo_amenities)
+        await session.flush()
+
+        # Seed Community Announcements
+        demo_announcements = [
+            Announcement(
+                id=uuid4(),
+                building_id=building.id,
+                title="Bảo trì khẩn cấp đường ống cấp nước sinh hoạt trục dọc tầng 10 - 20",
+                content="Kính gửi quý cư dân, Ban Quản Lý xin thông báo tạm ngừng cấp nước sinh hoạt từ 13:30 đến 15:30 ngày hôm nay để thay van một chiều trục chính tầng 15. Quý cư dân vui lòng dự trữ nước cần thiết. Chân thành cáo lỗi vì sự bất tiện này.",
+                category="maintenance",
+                priority="urgent",
+                published_by=admin_user.id,
+                published_at=now - timedelta(hours=1),
+                expires_at=now + timedelta(days=2),
+                pin_to_top=True,
+                image_url=None,
+                is_active=True,
+            ),
+            Announcement(
+                id=uuid4(),
+                building_id=building.id,
+                title="Đêm Hội Trăng Rằm — Tết Trung Thu 2026 Dành Cho Thiếu Nhi",
+                content="Chào đón mùa trăng rằm 2026, Ban Quản Lý The Oasis kết hợp cùng Hội Cư Dân tổ chức đêm hội rước đèn, phá cỗ và múa lân vào lúc 19:00 thứ Bảy tuần này tại Sảnh Cộng Đồng Tầng 1. Kính mời toàn thể gia đình và các bé tham dự!",
+                category="event",
+                priority="standard",
+                published_by=bql_user.id,
+                published_at=now - timedelta(hours=6),
+                expires_at=now + timedelta(days=7),
+                pin_to_top=False,
+                image_url="https://images.unsplash.com/photo-1533230304471-7053359d99c4?auto=format&fit=crop&w=800&q=80",
+                is_active=True,
+            ),
+            Announcement(
+                id=uuid4(),
+                building_id=building.id,
+                title="Tập huấn & Diễn tập Phòng Cháy Chữa Cháy (PCCC) Quý 3/2026",
+                content="Ban Quản Lý phối hợp cùng Đội Cảnh Sát PCCC Quận tổ chức buổi tuyên truyền an toàn PCCC, hướng dẫn kỹ năng thoát hiểm khi có chuông báo động và thực hành sử dụng bình chữa cháy CO2. Thời gian: 08:30 sáng Chủ Nhật.",
+                category="safety",
+                priority="standard",
+                published_by=bql_user.id,
+                published_at=now - timedelta(days=1),
+                expires_at=now + timedelta(days=14),
+                pin_to_top=False,
+                image_url=None,
+                is_active=True,
+            ),
+            Announcement(
+                id=uuid4(),
+                building_id=building.id,
+                title="Nhắc nhở phân loại rác tái chế tại phòng gom rác các tầng",
+                content="Để giữ gìn vệ sinh chung và bảo vệ môi trường, BQL kính nhờ quý cư dân vui lòng phân loại rác hữu cơ vào túi xanh và rác tái chế (vỏ chai, thùng carton) vào thùng màu cam. Xin cảm ơn sự chung tay của quý cư dân.",
+                category="general",
+                priority="standard",
+                published_by=bql_user.id,
+                published_at=now - timedelta(days=3),
+                expires_at=now + timedelta(days=30),
+                pin_to_top=False,
+                image_url=None,
+                is_active=True,
+            ),
+        ]
+        session.add_all(demo_announcements)
+        await session.flush()
+
+        # Mark first announcement as read for user 1
+        read_rec = AnnouncementRead(
+            id=uuid4(),
+            announcement_id=demo_announcements[1].id,
+            user_id=users[1].id,
+            read_at=now - timedelta(hours=2),
+        )
+        session.add(read_rec)
+
+        # Seed sample Service Request
+        sample_sr_ticket = Ticket(
+            id=uuid4(),
+            source=TicketSource.RESIDENT_REPORT,
+            apartment_id=apartments[0][0].id,
+            category="cleaning",
+            priority=TicketPriority.MEDIUM,
+            status=TicketStatus.ASSIGNED,
+            title="Đặt lịch tổng vệ sinh căn hộ A-101",
+            description="Căn hộ gia đình cần dọn dẹp hút bụi và lau kính ban công vào sáng thứ Bảy.",
+            created_by=users[1].id,
+            assigned_to=tech_elec.id,
+            created_at=now - timedelta(days=1),
+        )
+        session.add(sample_sr_ticket)
+        await session.flush()
+
+        sample_sr = ServiceRequest(
+            id=uuid4(),
+            ticket_id=sample_sr_ticket.id,
+            request_type="cleaning",
+            scheduled_at=now + timedelta(days=2),
+            scheduled_slot="08:00 - 10:00",
+            notes={"package": "deep_clean", "square_meters": 75, "has_pets": False},
+            created_at=now - timedelta(days=1),
+        )
+        session.add(sample_sr)
+
+        # Seed sample Amenity Booking
+        tomorrow = (now + timedelta(days=1)).date()
+        sample_booking = AmenityBooking(
+            id=uuid4(),
+            amenity_id=demo_amenities[1].id,
+            apartment_id=apartments[0][0].id,
+            user_id=users[1].id,
+            booking_date=tomorrow,
+            time_slot="17:00 - 20:00",
+            status="confirmed",
+            notes="Tiệc nướng BBQ gia đình mừng sinh nhật bé.",
+            created_at=now - timedelta(hours=5),
+        )
+        session.add(sample_booking)
+        await session.commit()
+        print(f"   Seeded {len(demo_amenities)} amenities, {len(demo_announcements)} announcements, 1 service request & 1 amenity booking.")
 
     print("[SUCCESS] Demo Data Seeding Complete! PostgreSQL database is now primed for live demo.")
 

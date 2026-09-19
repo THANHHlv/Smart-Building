@@ -27,8 +27,9 @@ import type {
 } from '../types';
 
 interface TicketKanbanProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
 }
 
 const CATEGORY_META: Record<
@@ -59,17 +60,17 @@ const COLUMNS: {
 }[] = [
   {
     id: 'col_open',
-    title: 'Chờ Tiếp Nhận',
+    title: 'Mới Tiếp Nhận',
     statuses: ['open', 'reopened'],
     dropStatus: 'open',
     accent: '#B87319',
   },
   {
     id: 'col_assigned',
-    title: 'Đã Phân Công',
+    title: 'Đã Điều Phối',
     statuses: ['assigned'],
     dropStatus: 'assigned',
-    accent: '#3B82F6',
+    accent: '#06B6D4',
   },
   {
     id: 'col_in_progress',
@@ -80,14 +81,14 @@ const COLUMNS: {
   },
   {
     id: 'col_resolved',
-    title: 'Đã Hoàn Thành',
+    title: 'Đã Giải Quyết',
     statuses: ['resolved', 'closed'],
     dropStatus: 'resolved',
     accent: '#4A7C59',
   },
 ];
 
-export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) => {
+export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen = true, onClose, asPage = false }) => {
   const [viewMode, setViewMode] = useState<'kanban' | 'sla_report'>('kanban');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -145,10 +146,12 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadData();
     }
-  }, [isOpen, filterCategory, filterPriority, filterOverdueOnly]);
+  }, [isOpen, asPage, filterCategory, filterPriority, filterOverdueOnly]);
+
+  if (!isOpen && !asPage) return null;
 
   // Load SLA report
   const loadSlaReport = async () => {
@@ -288,7 +291,7 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   // Filtered tickets
   const filteredTickets = tickets.filter((t) => {
@@ -303,34 +306,22 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
     return true;
   });
 
-  return (
+  const content = (
     <div
+      className="page-view-container animate-fade-in"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
+        width: '100%',
+        maxWidth: asPage ? '100%' : '1280px',
+        height: asPage ? 'calc(100vh - 160px)' : '92vh',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(45, 40, 37, 0.45)',
-        backdropFilter: 'blur(6px)',
-        padding: '16px',
+        flexDirection: 'column',
+        background: '#FAF7F2',
+        border: '1px solid #EFE9DF',
+        borderRadius: '16px',
+        boxShadow: asPage ? '0 2px 12px rgba(45, 40, 37, 0.05)' : '0 25px 50px -12px rgba(45, 40, 37, 0.2)',
+        overflow: 'hidden',
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1280px',
-          height: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#FAF7F2',
-          border: '1px solid #EFE9DF',
-          borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(45, 40, 37, 0.2)',
-          overflow: 'hidden',
-        }}
-      >
         {/* Header Bar */}
         <div
           style={{
@@ -466,24 +457,26 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </button>
 
-            <button
-              onClick={onClose}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '8px',
-                border: '1px solid #E5DFD5',
-                background: '#FFFFFF',
-                color: '#736B63',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Đóng"
-            >
-              <X size={18} />
-            </button>
+            {!asPage && onClose && (
+              <button
+                onClick={onClose}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '8px',
+                  border: '1px solid #E5DFD5',
+                  background: '#FFFFFF',
+                  color: '#736B63',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Đóng"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1118,7 +1111,6 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
             </div>
           )}
         </div>
-      </div>
 
       {/* Technician Assignment Modal */}
       {isAssignModalOpen && (
@@ -1621,6 +1613,26 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen, onClose }) =
           </div>
         </div>
       )}
+    </div>
+  );
+
+  if (asPage) return content;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(45, 40, 37, 0.45)',
+        backdropFilter: 'blur(6px)',
+        padding: '16px',
+      }}
+    >
+      {content}
     </div>
   );
 };

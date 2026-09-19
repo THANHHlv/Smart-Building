@@ -39,3 +39,6 @@ aiokafka==0.14.0
 
 # --- Observability ---
 prometheus-client==0.26.0
+
+# --- Reporting & Data Export ---
+openpyxl==3.1.5

@@ -22,10 +22,11 @@ import type {
 import { api } from '../services/api';
 
 interface MyServicesProps {
-  onClose: () => void;
+  onClose?: () => void;
+  asPage?: boolean;
 }
 
-export const MyServices: React.FC<MyServicesProps> = ({ onClose }) => {
+export const MyServices: React.FC<MyServicesProps> = ({ onClose, asPage = false }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'services' | 'history' | 'settings'>('overview');
   
   // Data States
@@ -85,9 +86,8 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1C1C1E] w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+  const content = (
+    <div className={`bg-[#1C1C1E] w-full ${asPage ? 'min-h-[calc(100vh-160px)]' : 'max-w-5xl h-[90vh]'} rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200`}>
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#2C2C2E]/50">
@@ -100,9 +100,11 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose }) => {
               <p className="text-sm text-gray-400">Quản lý dịch vụ và thanh toán căn hộ</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
+          {!asPage && onClose && (
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          )}
         </div>
 
         {/* Content Area */}
@@ -331,7 +333,6 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose }) => {
             )}
           </div>
         </div>
-      </div>
 
       {/* Breakdown Modal */}
       {breakdown && (
@@ -409,6 +410,14 @@ export const MyServices: React.FC<MyServicesProps> = ({ onClose }) => {
         </div>
       )}
 
+    </div>
+  );
+
+  if (asPage) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      {content}
     </div>
   );
 };

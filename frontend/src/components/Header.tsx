@@ -5,18 +5,12 @@ import {
   RefreshCw,
   Sparkles,
   UserCheck,
-  Users,
   Wifi,
   WifiOff,
-  Wrench,
-  Receipt,
-  Kanban,
-  Building2,
-  Shield,
+  Newspaper,
 } from 'lucide-react';
 import type { UserProfile } from '../types';
 import { NotificationCenter } from './NotificationCenter';
-
 
 interface HeaderProps {
   currentUser: UserProfile | null;
@@ -25,14 +19,9 @@ interface HeaderProps {
   isRefreshing: boolean;
   autoRefresh: boolean;
   onToggleAutoRefresh: () => void;
-  onOpenUserManager?: () => void;
-  onOpenMaintenance?: () => void;
-  onOpenTickets?: () => void;
-  onOpenBilling?: () => void;
   onOpenAiAssistant?: () => void;
-  onOpenAdminDashboard?: () => void;
-  onOpenRbacManager?: () => void;
-  unassignedUsersCount?: number;
+  onOpenBulletin?: () => void;
+  unreadAnnouncementsCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -42,14 +31,9 @@ export const Header: React.FC<HeaderProps> = ({
   isRefreshing,
   autoRefresh,
   onToggleAutoRefresh,
-  onOpenUserManager,
-  onOpenMaintenance,
-  onOpenTickets,
-  onOpenBilling,
   onOpenAiAssistant,
-  onOpenAdminDashboard,
-  onOpenRbacManager,
-  unassignedUsersCount = 0,
+  onOpenBulletin,
+  unreadAnnouncementsCount = 0,
 }) => {
 
   const [timeStr, setTimeStr] = useState<string>('');
@@ -124,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
                   fontFamily: 'var(--font-display)',
                 }}
               >
-                THE OASIS
+                THANHLE TOWER
               </h1>
               <span
                 className={`badge ${isAdmin ? 'badge-telemetry' : 'badge-healthy'}`}
@@ -133,7 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {isAdmin ? 'BAN QUẢN LÝ' : 'CỘNG ĐỒNG CƯ DÂN'}
               </span>
               <span className="badge badge-low" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                {isAdmin ? 'ĐIỀU HÀNH TỔ ẤM' : `CĂN HỘ ${currentUser?.apartment_unit || '—'}`}
+                {isAdmin ? 'ĐIỀU HÀNH CĂN HỘ' : `CĂN HỘ ${currentUser?.apartment_unit || '—'}`}
               </span>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -259,6 +243,41 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{autoRefresh ? 'Live Sync 5s' : 'Sync Paused'}</span>
           </button>
 
+          {/* Community Bulletin Quick Access */}
+          {onOpenBulletin && (
+            <button
+              type="button"
+              onClick={onOpenBulletin}
+              className="btn btn-ghost"
+              style={{
+                fontSize: '0.78rem',
+                padding: '6px 12px',
+                position: 'relative',
+                color: unreadAnnouncementsCount > 0 ? '#D96B43' : 'var(--text-secondary)',
+                borderColor: unreadAnnouncementsCount > 0 ? 'rgba(217, 107, 67, 0.4)' : 'var(--border-subtle)',
+                background: unreadAnnouncementsCount > 0 ? 'rgba(217, 107, 67, 0.08)' : 'transparent',
+              }}
+              title="Bảng tin chung cư & thông báo khẩn cấp"
+            >
+              <Newspaper size={15} color={unreadAnnouncementsCount > 0 ? '#D96B43' : undefined} />
+              <span>Bảng Tin</span>
+              {unreadAnnouncementsCount > 0 && (
+                <span
+                  style={{
+                    background: '#D96B43',
+                    color: '#FFFFFF',
+                    borderRadius: '10px',
+                    padding: '1px 6px',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  {unreadAnnouncementsCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Notification Center */}
           <NotificationCenter currentUserId={currentUser?.id} />
 
@@ -344,162 +363,6 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {isAdmin && onOpenUserManager && (
-            <button
-              onClick={onOpenUserManager}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: unassignedUsersCount > 0 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(56, 189, 248, 0.1)',
-                border: unassignedUsersCount > 0 ? '1px solid rgba(244, 63, 94, 0.4)' : '1px solid rgba(56, 189, 248, 0.3)',
-                color: unassignedUsersCount > 0 ? '#f43f5e' : '#38bdf8',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-              title="Quản lý danh sách cư dân và duyệt gán căn hộ"
-            >
-              <Users size={13} />
-              <span>Quản Lý Cư Dân</span>
-              {unassignedUsersCount > 0 && (
-                <span
-                  style={{
-                    background: '#f43f5e',
-                    color: '#ffffff',
-                    borderRadius: '10px',
-                    padding: '1px 6px',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                  }}
-                >
-                  {unassignedUsersCount}
-                </span>
-              )}
-            </button>
-          )}
-
-          {isAdmin && onOpenAdminDashboard && (
-            <button
-              onClick={onOpenAdminDashboard}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(74, 124, 89, 0.14)',
-                border: '1px solid rgba(74, 124, 89, 0.4)',
-                color: '#4A7C59',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 700,
-              }}
-              title="Mở Trung Tâm Điều Hành Nghiệp Vụ Ban Quản Lý (Thu phí, nợ quá hạn, sức khỏe thiết bị)"
-            >
-              <Building2 size={13} />
-              <span>Vận Hành BQL</span>
-            </button>
-          )}
-
-          {isAdmin && onOpenRbacManager && (
-            <button
-              onClick={onOpenRbacManager}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(217, 107, 67, 0.12)',
-                border: '1px solid rgba(217, 107, 67, 0.35)',
-                color: '#D96B43',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              title="Quản lý vai trò và phân quyền (Super Admin, BQL, Kế toán, Kỹ thuật, Cư dân)"
-            >
-              <Shield size={13} />
-              <span>Phân Quyền RBAC</span>
-            </button>
-          )}
-
-          {onOpenTickets && (
-            <button
-              onClick={onOpenTickets}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: isAdmin ? 'rgba(217, 107, 67, 0.14)' : 'rgba(74, 124, 89, 0.14)',
-                border: isAdmin ? '1px solid rgba(217, 107, 67, 0.4)' : '1px solid rgba(74, 124, 89, 0.4)',
-                color: isAdmin ? '#D96B43' : '#4A7C59',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 700,
-              }}
-              title={isAdmin ? 'Bảng Kanban điều phối và theo dõi SLA phiếu công việc' : 'Báo hỏng thiết bị và theo dõi tiến độ xử lý'}
-            >
-              {isAdmin ? <Kanban size={14} /> : <Wrench size={14} />}
-              <span>{isAdmin ? 'Phiếu Việc (Kanban)' : 'Báo Hỏng & Hỗ Trợ'}</span>
-            </button>
-          )}
-
-          {onOpenMaintenance && (
-            <button
-              onClick={onOpenMaintenance}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(249, 115, 22, 0.1)',
-                border: '1px solid rgba(249, 115, 22, 0.3)',
-                color: '#f97316',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-              title="Xem và gửi phiếu bảo trì sự cố kỹ thuật"
-            >
-              <Wrench size={13} />
-              <span>{isAdmin ? 'Lịch Bảo Trì' : 'Phiếu Cũ'}</span>
-            </button>
-          )}
-
-          {onOpenBilling && (
-            <button
-              onClick={onOpenBilling}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 10px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(217, 107, 67, 0.12)',
-                border: '1px solid rgba(217, 107, 67, 0.35)',
-                color: '#D96B43',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-              title="Xem hoá đơn điện nước, dịch vụ và thanh toán trực tuyến"
-            >
-              <Receipt size={13} />
-              <span>{isAdmin ? 'Quản Lý Hoá Đơn' : 'Dịch Vụ Của Tôi'}</span>
-            </button>
-          )}
-
           {onOpenAiAssistant && (
             <button
               onClick={onOpenAiAssistant}
@@ -510,10 +373,10 @@ export const Header: React.FC<HeaderProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(56, 189, 248, 0.25))',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
-                color: '#38bdf8',
-                borderRadius: '6px',
+                background: 'rgba(217, 107, 67, 0.08)',
+                border: '1px solid rgba(217, 107, 67, 0.3)',
+                color: '#D96B43',
+                borderRadius: '8px',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}

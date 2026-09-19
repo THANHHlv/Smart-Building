@@ -19,17 +19,18 @@ class InvoiceRepository(BaseRepository[Invoice]):
 
     async def get_by_apartment(
         self,
-        apartment_id: UUID,
+        apartment_id: UUID | None = None,
         status: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> list[Invoice]:
-        """Get invoices for an apartment, optionally filtered by status."""
+        """Get invoices for an apartment (or all apartments if apartment_id is None), optionally filtered by status."""
         query = (
             select(Invoice)
             .options(selectinload(Invoice.items), selectinload(Invoice.transactions))
-            .where(Invoice.apartment_id == apartment_id)
         )
+        if apartment_id is not None:
+            query = query.where(Invoice.apartment_id == apartment_id)
         if status:
             query = query.where(Invoice.status == status)
         query = query.order_by(Invoice.created_at.desc()).offset(offset).limit(limit)

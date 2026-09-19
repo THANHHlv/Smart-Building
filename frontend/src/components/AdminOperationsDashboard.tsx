@@ -14,6 +14,12 @@ import {
   Shield,
   Layers,
   Percent,
+  Megaphone,
+  Newspaper,
+  FileSpreadsheet,
+  CheckSquare,
+  Square,
+  Loader2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type {
@@ -22,17 +28,24 @@ import type {
   OverdueApartmentItem,
   DeviceHealthResponse,
 } from '../types';
+import { ReportExportModal } from './ReportExportModal';
 
 interface AdminOperationsDashboardProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
   onOpenRbac?: () => void;
+  onOpenAnnouncementEditor?: () => void;
+  onOpenBulletin?: () => void;
 }
 
 export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> = ({
   isOpen,
   onClose,
+  asPage = false,
   onOpenRbac,
+  onOpenAnnouncementEditor,
+  onOpenBulletin,
 }) => {
   const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
   const [collectionData, setCollectionData] = useState<CollectionRateResponse | null>(null);
@@ -43,6 +56,9 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [remindedUnits, setRemindedUnits] = useState<Record<string, boolean>>({});
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [selectedOverdueIds, setSelectedOverdueIds] = useState<string[]>([]);
+  const [isSendingBulkReminders, setIsSendingBulkReminders] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
@@ -66,17 +82,57 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadDashboardData();
     }
-  }, [isOpen, loadDashboardData]);
+  }, [isOpen, asPage, loadDashboardData]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   const handleSendReminder = (apartmentId: string, unitNumber: string) => {
     setRemindedUnits((prev) => ({ ...prev, [apartmentId]: true }));
     setActionNotice(`Đã gửi thông báo nhắc hạn thanh toán tức thì tới cư dân Căn ${unitNumber}`);
     setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  const handleToggleSelectOverdue = (aptId: string) => {
+    setSelectedOverdueIds((prev) =>
+      prev.includes(aptId) ? prev.filter((id) => id !== aptId) : [...prev, aptId]
+    );
+  };
+
+  const handleSelectAllOverdue = () => {
+    if (selectedOverdueIds.length === filteredOverdue.length && filteredOverdue.length > 0) {
+      setSelectedOverdueIds([]);
+    } else {
+      setSelectedOverdueIds(filteredOverdue.map((a) => a.apartment_id));
+    }
+  };
+
+  const handleBulkRemindOverdue = async () => {
+    const count = selectedOverdueIds.length;
+    if (count === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn gửi thông báo nhắc hạn thanh toán tức thì tới ${count} căn hộ đã chọn?`)) {
+      return;
+    }
+    setIsSendingBulkReminders(true);
+    setActionNotice(`Đang phát thông báo nhắc nợ tới ${count} căn hộ...`);
+    try {
+      const job = await api.sendBulkReminders({ min_overdue_days: 1 });
+      const newReminded: Record<string, boolean> = { ...remindedUnits };
+      selectedOverdueIds.forEach((id) => {
+        newReminded[id] = true;
+      });
+      setRemindedUnits(newReminded);
+      setSelectedOverdueIds([]);
+      setActionNotice(`Đã kích hoạt gửi nhắc nợ hàng loạt thành công (Job: ${job.id.slice(0, 8)})`);
+      setTimeout(() => setActionNotice(null), 5000);
+    } catch (err: any) {
+      setActionNotice(err.message || 'Lỗi khi gửi nhắc nợ hàng loạt.');
+      setTimeout(() => setActionNotice(null), 5000);
+    } finally {
+      setIsSendingBulkReminders(false);
+    }
   };
 
   const filteredOverdue = overdueList.filter((item) => {
@@ -93,37 +149,24 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
   };
 
-  return (
+  const content = (
     <div
       style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(25, 20, 18, 0.65)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 9999,
+        width: '100%',
+        maxWidth: asPage ? '100%' : '1240px',
+        maxHeight: asPage ? 'none' : '94vh',
+        minHeight: asPage ? 'calc(100vh - 160px)' : undefined,
+        backgroundColor: '#FAF7F2',
+        borderRadius: '16px',
+        border: '1px solid #E5DCCE',
+        boxShadow: asPage ? '0 2px 12px rgba(45, 40, 37, 0.04)' : '0 20px 50px rgba(0, 0, 0, 0.22)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        animation: 'fadeIn 0.2s ease',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        color: '#2D2825',
+        fontFamily: 'var(--font-sans, system-ui, sans-serif)',
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1240px',
-          maxHeight: '94vh',
-          backgroundColor: '#FAF7F2',
-          borderRadius: '16px',
-          border: '1px solid #E5DCCE',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.22)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          color: '#2D2825',
-          fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-        }}
-      >
         {/* Header Bar */}
         <div
           style={{
@@ -211,6 +254,77 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
               </button>
             )}
 
+            {onOpenAnnouncementEditor && (
+              <button
+                onClick={onOpenAnnouncementEditor}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  backgroundColor: '#D96B43',
+                  border: '1px solid #D96B43',
+                  color: '#FFFFFF',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 2px 6px rgba(217, 107, 67, 0.25)',
+                }}
+                title="Tạo và đăng thông báo mới tới cư dân tòa nhà"
+              >
+                <Megaphone size={15} />
+                <span>Đăng Bản Tin</span>
+              </button>
+            )}
+
+            {onOpenBulletin && (
+              <button
+                onClick={onOpenBulletin}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E5DCCE',
+                  color: '#4A4036',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Xem bảng tin cư dân toà nhà"
+              >
+                <Newspaper size={15} />
+                <span>Xem Bảng Tin</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                backgroundColor: '#FFFFFF',
+                border: '1px solid #4A7C59',
+                color: '#4A7C59',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Xuất báo cáo thu phí, công nợ, bảo trì, đối soát ra Excel (.xlsx)"
+            >
+              <FileSpreadsheet size={15} />
+              <span>Xuất Báo Cáo</span>
+            </button>
+
             <button
               onClick={loadDashboardData}
               disabled={isLoading}
@@ -233,23 +347,25 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
               <span>{isLoading ? 'Đang cập nhật...' : 'Làm mới'}</span>
             </button>
 
-            <button
-              onClick={onClose}
-              style={{
-                padding: '8px',
-                backgroundColor: '#FAF7F2',
-                border: '1px solid #E5DCCE',
-                color: '#786F66',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Đóng bảng điều hành"
-            >
-              <X size={18} />
-            </button>
+            {!asPage && onClose && (
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '8px',
+                  backgroundColor: '#FAF7F2',
+                  border: '1px solid #E5DCCE',
+                  color: '#786F66',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Đóng bảng điều hành"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -674,6 +790,67 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                 </div>
               </div>
 
+              {/* Bulk Overdue Action Bar */}
+              {selectedOverdueIds.length > 0 && (
+                <div style={{
+                  marginBottom: '14px',
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(217, 107, 67, 0.08)',
+                  border: '1px solid rgba(217, 107, 67, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#D96B43' }}>
+                      Đã chọn {selectedOverdueIds.length} căn hộ nợ quá hạn
+                    </span>
+                    <button
+                      onClick={() => setSelectedOverdueIds([])}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.76rem',
+                        color: '#786F66',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Bỏ chọn
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleBulkRemindOverdue}
+                    disabled={isSendingBulkReminders}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '7px 14px',
+                      backgroundColor: '#D96B43',
+                      border: 'none',
+                      color: '#FFFFFF',
+                      borderRadius: '6px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: isSendingBulkReminders ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 2px 6px rgba(217, 107, 67, 0.25)',
+                    }}
+                  >
+                    {isSendingBulkReminders ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Send size={14} />
+                    )}
+                    <span>Gửi Nhắc Nợ Hàng Loạt ({selectedOverdueIds.length})</span>
+                  </button>
+                </div>
+              )}
+
               {filteredOverdue.length === 0 ? (
                 <div style={{ padding: '36px', textAlign: 'center', color: '#786F66' }}>
                   <CheckCircle2 size={36} color="#4A7C59" style={{ margin: '0 auto 10px auto' }} />
@@ -685,6 +862,19 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#FAF7F2', borderBottom: '1px solid #E5DCCE', textAlign: 'left' }}>
+                        <th style={{ padding: '10px 14px', width: '38px', textAlign: 'center' }}>
+                          <button
+                            onClick={handleSelectAllOverdue}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                            title="Chọn tất cả"
+                          >
+                            {selectedOverdueIds.length > 0 && selectedOverdueIds.length === filteredOverdue.length ? (
+                              <CheckSquare size={16} color="#4A7C59" />
+                            ) : (
+                              <Square size={16} color="#A0978D" />
+                            )}
+                          </button>
+                        </th>
                         <th style={{ padding: '10px 14px', fontWeight: 700, color: '#4A4036' }}>Căn Hộ</th>
                         <th style={{ padding: '10px 14px', fontWeight: 700, color: '#4A4036' }}>Cư Dân</th>
                         <th style={{ padding: '10px 14px', fontWeight: 700, color: '#4A4036' }}>Hóa Đơn Nợ</th>
@@ -696,11 +886,28 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                     <tbody>
                       {filteredOverdue.map((apt) => {
                         const isReminded = remindedUnits[apt.apartment_id];
+                        const isSelected = selectedOverdueIds.includes(apt.apartment_id);
                         return (
                           <tr
                             key={apt.apartment_id}
-                            style={{ borderBottom: '1px solid #EFE9DF', transition: 'background-color 0.15s' }}
+                            style={{
+                              borderBottom: '1px solid #EFE9DF',
+                              backgroundColor: isSelected ? 'rgba(74, 124, 89, 0.05)' : 'transparent',
+                              transition: 'background-color 0.15s',
+                            }}
                           >
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <button
+                                onClick={() => handleToggleSelectOverdue(apt.apartment_id)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                              >
+                                {isSelected ? (
+                                  <CheckSquare size={16} color="#4A7C59" />
+                                ) : (
+                                  <Square size={16} color="#A0978D" />
+                                )}
+                              </button>
+                            </td>
                             <td style={{ padding: '12px 14px', fontWeight: 700, color: '#2D2825' }}>
                               Căn {apt.apartment_unit}
                               <div style={{ fontSize: '0.74rem', color: '#786F66', fontWeight: 400 }}>
@@ -906,6 +1113,40 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
           )}
         </div>
       </div>
+  );
+
+  if (asPage) {
+    return (
+      <>
+        {content}
+        <ReportExportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(25, 20, 18, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      {content}
+      <ReportExportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+      />
     </div>
   );
 };

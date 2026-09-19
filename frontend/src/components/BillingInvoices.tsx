@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Receipt, Zap, Droplets, Building2, Car, Wrench, Package, X, ChevronRight, Clock, CheckCircle2, AlertCircle, CreditCard } from 'lucide-react';
+import {
+  Receipt, Zap, Droplets, Building2, Car, Wrench, Package, X, ChevronRight,
+  Clock, CheckCircle2, AlertCircle, CreditCard, Layers, DollarSign,
+  FileSpreadsheet, CheckSquare, Square, Loader2, Send
+} from 'lucide-react';
 import { api } from '../services/api';
-import type { InvoiceDetail, InvoiceListItem } from '../types';
+import type { BulkJob, InvoiceDetail, InvoiceListItem } from '../types';
+import { ReportExportModal } from './ReportExportModal';
+import { BillingRateModal } from './BillingRateModal';
 
 /* ─── SERVICE TYPE → ICON + LABEL MAP ─── */
 const SERVICE_META: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -32,19 +38,31 @@ function formatDate(dateStr: string): string {
 /* ─── TAB TYPE ─── */
 type BillingTab = 'current' | 'history';
 
-/* ─── PROPS ─── */
 interface BillingInvoicesProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
 }
 
-export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClose }) => {
+export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
+  isOpen,
+  onClose,
+  asPage = false,
+}) => {
   const [activeTab, setActiveTab] = useState<BillingTab>('current');
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+
+  /* Bulk operations & modals state */
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+  const [activeJob, setActiveJob] = useState<BulkJob | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   /* Load invoices */
   const loadInvoices = useCallback(async () => {
@@ -59,13 +77,93 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
     }
   }, []);
 
+  /* Toggle selection of a single invoice */
+  const handleToggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  /* Toggle select all in current tab */
+  const handleSelectAll = () => {
+    const list = activeTab === 'current' ? currentInvoices : historyInvoices;
+    if (selectedIds.length === list.length && list.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(list.map(i => i.id));
+    }
+  };
+
+  /* Bulk Invoice Generation */
+  const handleGenerateBulkInvoices = async () => {
+    if (!window.confirm('Hệ thống sẽ phát hành hóa đơn tự động cho tất cả căn hộ trong chu kỳ tháng này. Bạn có muốn tiếp tục?')) {
+      return;
+    }
+    setIsGeneratingBulk(true);
+    setActionFeedback('Đang khởi tạo tiến trình phát hành hóa đơn hàng loạt...');
+    try {
+      const job = await api.generateBulkInvoices({});
+      setActiveJob(job);
+
+      // Poll job progress
+      const pollTimer = setInterval(async () => {
+        try {
+          const status = await api.getBulkJobStatus(job.id);
+          setActiveJob(status);
+          if (status.status === 'completed' || status.status === 'failed') {
+            clearInterval(pollTimer);
+            setIsGeneratingBulk(false);
+            loadInvoices();
+            setActionFeedback(
+              status.status === 'completed'
+                ? `Đã phát hành thành công ${status.processed_items} hóa đơn!`
+                : `Phát hành hóa đơn thất bại: ${status.error_summary?.length || 0} lỗi`
+            );
+            setTimeout(() => setActionFeedback(null), 5000);
+          }
+        } catch {
+          clearInterval(pollTimer);
+          setIsGeneratingBulk(false);
+        }
+      }, 1500);
+    } catch (err: any) {
+      setIsGeneratingBulk(false);
+      setActionFeedback(err.message || 'Lỗi khi khởi tạo phát hành hóa đơn hàng loạt.');
+      setTimeout(() => setActionFeedback(null), 5000);
+    }
+  };
+
+  /* Bulk Overdue Reminders */
+  const handleSendBulkReminders = async () => {
+    const count = selectedIds.length;
+    if (count === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn gửi thông báo nhắc hạn thanh toán tức thì tới ${count} căn hộ đã chọn?`)) {
+      return;
+    }
+
+    setActionFeedback(`Đang gửi thông báo nhắc nợ tới ${count} căn hộ...`);
+    try {
+      const job = await api.sendBulkReminders({ min_overdue_days: 1 });
+      setActiveJob(job);
+      setSelectedIds([]);
+      setActionFeedback(`Đã kích hoạt gửi nhắc nợ hàng loạt (Job ID: ${job.id.slice(0, 8)})`);
+      setTimeout(() => setActionFeedback(null), 5000);
+    } catch (err: any) {
+      setActionFeedback(err.message || 'Gửi nhắc nợ hàng loạt thất bại.');
+      setTimeout(() => setActionFeedback(null), 5000);
+    }
+  };
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadInvoices();
       setSelectedInvoice(null);
       setPaymentMessage(null);
     }
-  }, [isOpen, loadInvoices]);
+  }, [isOpen, asPage, loadInvoices]);
+
+  if (!isOpen && !asPage) return null;
 
   /* Load invoice detail */
   const openInvoiceDetail = async (id: string) => {
@@ -100,7 +198,7 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   /* Partition invoices */
   const currentInvoices = invoices.filter(i => i.status === 'pending' || i.status === 'overdue');
@@ -116,29 +214,37 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(45, 40, 37, 0.4)',
-          backdropFilter: 'blur(4px)',
-          animation: 'fadeIn 0.2s ease',
-        }}
-      />
+      {!asPage && onClose && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(45, 40, 37, 0.4)',
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        />
+      )}
 
-      {/* Drawer */}
-      <aside
-        role="dialog"
+      {/* Main Container / Drawer */}
+      <div
+        role="region"
         aria-label="Dịch vụ & Hoá đơn"
         style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0,
-          width: 'min(520px, 95vw)',
-          zIndex: 10000,
+          position: asPage ? 'relative' : 'fixed',
+          top: asPage ? undefined : 0,
+          right: asPage ? undefined : 0,
+          bottom: asPage ? undefined : 0,
+          width: asPage ? '100%' : 'min(520px, 95vw)',
+          minHeight: asPage ? 'calc(100vh - 160px)' : undefined,
+          zIndex: asPage ? 10 : 10000,
           background: 'var(--bg-main)',
-          borderLeft: '1px solid var(--border-subtle)',
-          boxShadow: '-8px 0 30px rgba(45, 40, 37, 0.08)',
+          border: asPage ? '1px solid var(--border-subtle)' : undefined,
+          borderLeft: asPage ? undefined : '1px solid var(--border-subtle)',
+          borderRadius: asPage ? '16px' : undefined,
+          boxShadow: asPage ? '0 2px 12px rgba(45, 40, 37, 0.05)' : '-8px 0 30px rgba(45, 40, 37, 0.08)',
           display: 'flex', flexDirection: 'column',
-          animation: 'slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          animation: asPage ? 'fadeIn 0.2s ease' : 'slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           overflow: 'hidden',
         }}
       >
@@ -171,12 +277,20 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
               </p>
             </div>
           </div>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-muted)', padding: '6px', borderRadius: 'var(--radius-xs)',
-          }}>
-            <X size={20} />
-          </button>
+          {!asPage && onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Đóng"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-muted)', padding: '4px',
+                borderRadius: 'var(--radius-sm)', display: 'flex',
+                transition: 'color var(--transition-fast)',
+              }}
+            >
+              <X size={20} />
+            </button>
+          )}
         </header>
 
         {/* ─── Tab Switcher ─── */}
@@ -214,6 +328,151 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
             </button>
           ))}
         </nav>
+
+        {/* ─── Admin Bulk & Rates Action Toolbar ─── */}
+        <div style={{
+          padding: '10px 24px',
+          borderBottom: '1px solid var(--border-subtle)',
+          backgroundColor: 'var(--bg-card)',
+          display: 'flex',
+          gap: '8px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <button
+            onClick={handleGenerateBulkInvoices}
+            disabled={isGeneratingBulk}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              padding: '8px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid rgba(74, 124, 89, 0.3)',
+              backgroundColor: isGeneratingBulk ? 'var(--bg-elevated)' : 'rgba(74, 124, 89, 0.1)',
+              color: 'var(--accent-emerald)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: isGeneratingBulk ? 'not-allowed' : 'pointer',
+              transition: 'all var(--transition-fast)',
+            }}
+            title="Tự động phát hành hoá đơn cho toàn bộ căn hộ trong kỳ"
+          >
+            {isGeneratingBulk ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Layers size={14} />
+            )}
+            <span>{isGeneratingBulk ? 'Đang phát hành...' : 'Phát hành hàng loạt'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsRateModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Xem và cập nhật biểu giá điện, nước, phí quản lý có hiệu lực theo ngày"
+          >
+            <DollarSign size={14} color="var(--accent-amber)" />
+            <span>Biểu giá</span>
+          </button>
+
+          <button
+            onClick={() => setIsReportModalOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Xuất các báo cáo thu phí, công nợ, bảo trì, đối soát sang Excel"
+          >
+            <FileSpreadsheet size={14} color="var(--accent-cyan)" />
+            <span>Báo cáo</span>
+          </button>
+        </div>
+
+        {/* ─── Active Bulk Job Tracker Banner ─── */}
+        {activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing') && (
+          <div style={{
+            margin: '12px 24px 0',
+            padding: '12px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(74, 124, 89, 0.08)',
+            border: '1px solid rgba(74, 124, 89, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Loader2 size={14} className="animate-spin" color="var(--accent-emerald)" />
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {activeJob.job_type === 'invoice_generation' ? 'Đang tạo hoá đơn...' : 'Đang xử lý tiến trình ngầm...'}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {activeJob.processed_items} / {activeJob.total_items || '—'}
+              </span>
+            </div>
+            <div style={{
+              width: '100%', height: '6px', backgroundColor: 'var(--border-subtle)',
+              borderRadius: '3px', overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%',
+                width: `${activeJob.total_items ? Math.round((activeJob.processed_items / activeJob.total_items) * 100) : 45}%`,
+                backgroundColor: 'var(--accent-emerald)',
+                borderRadius: '3px',
+                transition: 'width 0.3s ease',
+              }} />
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Alert */}
+        {actionFeedback && (
+          <div style={{
+            margin: '12px 24px 0',
+            padding: '10px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(217, 107, 67, 0.1)',
+            border: '1px solid rgba(217, 107, 67, 0.25)',
+            fontSize: '0.78rem',
+            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span>{actionFeedback}</span>
+            <button
+              onClick={() => setActionFeedback(null)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* ─── Content Area ─── */}
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
@@ -420,31 +679,96 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
                 </div>
               )}
 
+              {/* ─── Select All & Counter Bar ─── */}
+              {((activeTab === 'current' ? currentInvoices : historyInvoices).length > 0) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '4px 2px 12px',
+                  fontSize: '0.78rem',
+                  color: 'var(--text-muted)',
+                }}>
+                  <button
+                    onClick={handleSelectAll}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      color: 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.78rem',
+                      padding: 0,
+                    }}
+                  >
+                    {selectedIds.length > 0 && selectedIds.length === (activeTab === 'current' ? currentInvoices : historyInvoices).length ? (
+                      <CheckSquare size={16} color="var(--accent-cyan)" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                    <span>Chọn tất cả ({(activeTab === 'current' ? currentInvoices : historyInvoices).length})</span>
+                  </button>
+
+                  {selectedIds.length > 0 && (
+                    <span style={{ fontWeight: 600, color: 'var(--accent-cyan)' }}>
+                      Đã chọn {selectedIds.length}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {(activeTab === 'current' ? currentInvoices : historyInvoices).map(inv => {
                 const badge = STATUS_BADGE[inv.status] || STATUS_BADGE.draft;
                 const monthStr = new Date(inv.created_at).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+                const isSelected = selectedIds.includes(inv.id);
 
                 return (
-                  <button
+                  <div
                     key={inv.id}
                     onClick={() => openInvoiceDetail(inv.id)}
                     style={{
-                      width: '100%', textAlign: 'left',
-                      background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)', padding: '16px',
-                      marginBottom: '8px', cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                      background: isSelected ? 'rgba(45, 138, 126, 0.08)' : 'var(--bg-card)',
+                      border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '14px 16px',
+                      marginBottom: '8px',
+                      cursor: 'pointer',
                       transition: 'all var(--transition-fast)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
                       fontFamily: 'var(--font-sans)',
                     }}
                     className="invoice-list-item"
                   >
-                    <div>
+                    <button
+                      onClick={(e) => handleToggleSelect(inv.id, e)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: isSelected ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                      }}
+                      title={isSelected ? 'Bỏ chọn' : 'Chọn hoá đơn'}
+                    >
+                      {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+                    </button>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
                         fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)',
                         margin: '0 0 4px',
                       }}>
-                        {`Hoá đơn ${monthStr}` }
+                        {`Hoá đơn ${monthStr}`}
                       </p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{
@@ -459,6 +783,7 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
                         </span>
                       </div>
                     </div>
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{
                         fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)',
@@ -468,13 +793,77 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({ isOpen, onClos
                       </span>
                       <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
           )}
         </div>
-      </aside>
+
+        {/* ─── Floating Bulk Action Bar ─── */}
+        {selectedIds.length > 0 && !selectedInvoice && (
+          <div style={{
+            backgroundColor: 'var(--bg-card)',
+            borderTop: '1px solid var(--border-subtle)',
+            padding: '12px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
+            zIndex: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Đã chọn {selectedIds.length} hoá đơn
+              </span>
+              <button
+                onClick={() => setSelectedIds([])}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  textDecoration: 'underline',
+                }}
+              >
+                Bỏ chọn
+              </button>
+            </div>
+
+            <button
+              onClick={handleSendBulkReminders}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                backgroundColor: '#D96B43',
+                color: '#ffffff',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(217, 107, 67, 0.3)',
+              }}
+            >
+              <Send size={14} />
+              <span>Gửi nhắc hạn ({selectedIds.length})</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Modals ─── */}
+      <ReportExportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+      />
+      <BillingRateModal
+        isOpen={isRateModalOpen}
+        onClose={() => setIsRateModalOpen(false)}
+      />
 
       {/* Animation keyframes */}
       <style>{`

@@ -85,6 +85,10 @@ class NotificationService:
     # Ingestion & Dispatch Pipeline (Kafka Consumer / Service Calls)
     # -------------------------------------------------------------------------
 
+    async def dispatch(self, event: NotificationEventPayload) -> list[Notification]:
+        """Convenience alias for process_notification_event."""
+        return await self.process_notification_event(event)
+
     async def process_notification_event(
         self, event: NotificationEventPayload
     ) -> list[Notification]:

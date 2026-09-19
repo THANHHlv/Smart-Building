@@ -118,6 +118,17 @@ __all__ = [
     "Permission",
     "RolePermission",
     "UserRole",
+    # Self-Service Requests & Amenities
+    "ServiceRequest",
+    "Amenity",
+    "AmenityBooking",
+    # Announcements & Bulletin Board
+    "Announcement",
+    "AnnouncementRead",
+    # Bulk Operations, Reports & Billing Rates
+    "BulkJob",
+    "ReportExport",
+    "BillingRate",
 ]
 
 # --- RBAC Models ---
@@ -127,4 +138,22 @@ from app.models.rbac import (
     RolePermission,
     UserRole,
 )
+
+# --- Self-Service Requests & Amenities ---
+from app.models.service_request import (
+    ServiceRequest,
+    Amenity,
+    AmenityBooking,
+)
+
+# --- Announcements & Bulletin Board ---
+from app.models.announcement import (
+    Announcement,
+    AnnouncementRead,
+)
+
+# --- Bulk Operations, Reports & Billing Rates ---
+from app.models.bulk_job import BulkJob
+from app.models.report_export import ReportExport
+from app.models.billing_rate import BillingRate
 

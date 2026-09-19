@@ -15,16 +15,18 @@ import { api } from '../services/api';
 import type { MaintenanceTicket } from '../types';
 
 interface MaintenanceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  isAdmin: boolean;
-  apartmentUnit?: string | null;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
+  isAdmin?: boolean;
+  apartmentUnit?: string;
   onTicketChanged?: () => void;
 }
 
 export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   isOpen,
   onClose,
+  asPage = false,
   isAdmin,
   apartmentUnit,
   onTicketChanged,
@@ -61,7 +63,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadTickets();
       setErrorMsg(null);
       setSuccessMsg(null);
@@ -69,9 +71,9 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
         setActiveTab('list');
       }
     }
-  }, [isOpen, isAdmin]);
+  }, [isOpen, asPage, isAdmin]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,38 +181,23 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
     }
   };
 
-  return (
+  const content = (
     <div
+      className="glass-panel animate-fade-in"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 9999,
-        background: 'rgba(10, 15, 29, 0.85)',
-        backdropFilter: 'blur(10px)',
+        width: '100%',
+        maxWidth: asPage ? '100%' : '860px',
+        maxHeight: asPage ? 'none' : '90vh',
+        minHeight: asPage ? 'calc(100vh - 160px)' : undefined,
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        flexDirection: 'column',
+        background: 'linear-gradient(180deg, #141d31 0%, #0c1222 100%)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        boxShadow: asPage ? '0 2px 12px rgba(0, 0, 0, 0.3)' : '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+        borderRadius: '16px',
+        overflow: 'hidden',
       }}
     >
-      <div
-        className="glass-panel animate-fade-in-up"
-        style={{
-          width: '100%',
-          maxWidth: '860px',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'linear-gradient(180deg, #141d31 0%, #0c1222 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-          borderRadius: '16px',
-          overflow: 'hidden',
-        }}
-      >
         {/* Header */}
         <div
           style={{
@@ -247,20 +234,23 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="btn-icon"
-            style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              padding: '8px',
-              color: '#94a3b8',
-              cursor: 'pointer',
-            }}
-          >
-            <X size={20} />
-          </button>
+          {!asPage && onClose && (
+            <button
+              onClick={onClose}
+              className="btn-icon"
+              style={{
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                padding: '8px',
+                color: '#94a3b8',
+                cursor: 'pointer',
+              }}
+              title="Đóng"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
         {/* Tab switcher */}
@@ -689,6 +679,28 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
           </div>
         )}
       </div>
+  );
+
+  if (asPage) return content;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        background: 'rgba(10, 15, 29, 0.85)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) onClose();
+      }}
+    >
+      {content}
     </div>
   );
 };

@@ -12,12 +12,15 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.apartment import Apartment
 from app.models.billing_cycle import BillingCycle, BillingCycleStatus
+from app.models.billing_rate import BillingRate
 from app.models.energy_consumption import EnergyConsumption
+from app.models.floor import Floor
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.invoice_item import InvoiceItem, ServiceType
 from app.models.water_consumption import WaterConsumption
@@ -69,16 +72,18 @@ def calculate_evn_tariff(kwh: float) -> tuple[int, int, str]:
     return int(round(cost)), int(round(vat)), current_tier
 
 
-def calculate_water_cost(liters: float) -> int:
+def calculate_water_cost(liters: float, price_per_m3: float | None = None) -> int:
     """Calculate water cost from liters consumed.
 
     Args:
         liters: Total liters consumed in the billing period.
+        price_per_m3: Optional unit price per m3 in VND (defaults to settings).
 
     Returns:
         Cost in VND.
     """
-    price_per_m3 = settings.billing_water_price_per_m3
+    if price_per_m3 is None:
+        price_per_m3 = settings.billing_water_price_per_m3
     return int(round((liters / 1000.0) * price_per_m3))
 
 
@@ -208,8 +213,23 @@ class BillingEngine:
         self, cycle: BillingCycle
     ) -> Invoice | None:
         """Generate a single invoice for a billing cycle."""
-        # Fetch apartment info for management fee calculation
-        apt_query = select(Apartment).where(Apartment.id == cycle.apartment_id)
+        # Strict Idempotency guard: do not regenerate if cycle already invoiced or invoice exists
+        if cycle.status == BillingCycleStatus.INVOICED:
+            logger.info("cycle_already_invoiced", cycle_id=str(cycle.id))
+            return None
+
+        existing_inv_stmt = select(Invoice).where(Invoice.billing_cycle_id == cycle.id)
+        existing_inv = (await self.session.execute(existing_inv_stmt)).scalar_one_or_none()
+        if existing_inv:
+            logger.info("invoice_already_exists_for_cycle", cycle_id=str(cycle.id))
+            return existing_inv
+
+        # Fetch apartment info with floor for management fee calculation & building rate lookup
+        apt_query = (
+            select(Apartment)
+            .options(selectinload(Apartment.floor))
+            .where(Apartment.id == cycle.apartment_id)
+        )
         apt_result = await self.session.execute(apt_query)
         apartment = apt_result.scalar_one_or_none()
         if not apartment:
@@ -218,6 +238,28 @@ class BillingEngine:
                 apartment_id=str(cycle.apartment_id),
             )
             return None
+
+        # Look up building-level custom rates with effective_date <= cycle.period_start
+        water_price = float(settings.billing_water_price_per_m3)
+        mgmt_fee_rate = float(settings.billing_management_fee_per_sqm)
+        parking_fee_rate = float(settings.billing_parking_fee_per_slot)
+
+        building_id = apartment.floor.building_id if apartment.floor else None
+        if building_id:
+            rate_stmt = (
+                select(BillingRate)
+                .where(
+                    BillingRate.building_id == building_id,
+                    BillingRate.effective_date <= cycle.period_start,
+                )
+                .order_by(BillingRate.effective_date.desc(), BillingRate.created_at.desc())
+                .limit(1)
+            )
+            custom_rate = (await self.session.execute(rate_stmt)).scalar_one_or_none()
+            if custom_rate:
+                water_price = float(custom_rate.water_price_per_m3)
+                mgmt_fee_rate = float(custom_rate.management_fee_per_sqm)
+                parking_fee_rate = float(custom_rate.parking_fee_per_slot)
 
         items: list[InvoiceItem] = []
         total_amount = 0.0
@@ -271,13 +313,13 @@ class BillingEngine:
         liters = float((await self.session.execute(water_sum_stmt)).scalar_one())
 
         if liters > 0:
-            water_cost = calculate_water_cost(liters)
+            water_cost = calculate_water_cost(liters, price_per_m3=water_price)
             m3 = liters / 1000.0
             items.append(InvoiceItem(
                 service_type=ServiceType.WATER,
                 description=f"Nước tháng {cycle.period_start.strftime('%m/%Y')} — {m3:.2f} m³",
                 quantity=round(m3, 2),
-                unit_price=float(settings.billing_water_price_per_m3),
+                unit_price=water_price,
                 amount=water_cost,
                 metadata_json={"liters": round(liters, 2), "m3": round(m3, 2)},
             ))
@@ -286,27 +328,26 @@ class BillingEngine:
         # 3. Management fee — based on apartment area
         area_sqm = apartment.area_sqm or 0.0
         if area_sqm > 0:
-            mgmt_fee = int(round(area_sqm * settings.billing_management_fee_per_sqm))
+            mgmt_fee = int(round(area_sqm * mgmt_fee_rate))
             items.append(InvoiceItem(
                 service_type=ServiceType.MANAGEMENT_FEE,
                 description=f"Phí quản lý tháng {cycle.period_start.strftime('%m/%Y')} — {area_sqm:.0f} m²",
                 quantity=area_sqm,
-                unit_price=float(settings.billing_management_fee_per_sqm),
+                unit_price=mgmt_fee_rate,
                 amount=mgmt_fee,
             ))
             total_amount += mgmt_fee
 
         # 4. Parking fee (fixed per apartment, configurable)
-        parking_fee = settings.billing_parking_fee_per_slot
-        if parking_fee > 0:
+        if parking_fee_rate > 0:
             items.append(InvoiceItem(
                 service_type=ServiceType.PARKING,
                 description=f"Phí gửi xe tháng {cycle.period_start.strftime('%m/%Y')}",
                 quantity=1,
-                unit_price=float(parking_fee),
-                amount=parking_fee,
+                unit_price=parking_fee_rate,
+                amount=parking_fee_rate,
             ))
-            total_amount += parking_fee
+            total_amount += parking_fee_rate
 
         # Skip if no billable items
         if not items:
@@ -341,6 +382,7 @@ class BillingEngine:
         # Add items
         for item in items:
             item.invoice_id = created_invoice.id
+            item.invoice = created_invoice
             await self.invoice_repo.add_item(item)
 
         # Update cycle status

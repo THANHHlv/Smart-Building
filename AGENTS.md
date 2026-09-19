@@ -1,67 +1,68 @@
 # AGENTS.md
 
-## 0. Active Agent Skills & Knowledge Configuration
+## 0. Mandatory Downloaded Skills Enforcement Across Every Prompt
 
-The agent MUST automatically load and enforce the appropriate domain guidelines and skills based on the active task, and MUST state which skills were referenced:
+> **CRITICAL DIRECTIVE**: For **EVERY SINGLE USER PROMPT**, the AI agent MUST proactively identify, load, and strictly enforce the specialized downloaded skills located in `.agent/skills/` and `.agents/skills/`. The agent is strictly prohibited from bypassing downloaded skills or defaulting to generic base knowledge when a specialized local skill covers the domain.
 
-### 0.0 Global Governance & Project Rules
-Loaded across ALL tasks as the primary constraint layer:
-- `.agent/skills/rules/` (Operational rules, code standards, and workflow guardrails)
+### 0.0 Universal Prompt Execution Rule
+1. **Mandatory Skill Activation on Every Turn**: Before analyzing, planning, or writing any code, schemas, or configurations in response to a user prompt, the agent MUST inspect the task against the downloaded skills catalog below and load/read the corresponding `SKILL.md` instructions.
+2. **Execution Metadata Block**: In **EVERY** response without exception, the agent MUST include a concise metadata block at the top or bottom of the response explicitly declaring which downloaded skills were applied:
+   > `[Skills Applied: <comma-separated list of loaded downloaded skills>]`
+   *(Example: `[Skills Applied: fastapi-pro, database-admin, security-auditor]`)*
+   Never omit this metadata block. Stating `"None (Standard Base)"` is only permitted if the prompt is purely conversational and touches no code, design, database, DevOps, testing, or architecture.
+3. **Cross-Domain Synthesis**: When a prompt spans multiple domains (e.g. Full-stack endpoint + UI modal), the agent MUST combine both backend skills (e.g., `fastapi-pro`, `database-admin`) and frontend skills (e.g., `ui-ux-pro-max`, `design-system`).
+4. **Zero Generic Fallbacks**: Every architectural pattern, code structure, styling token, query optimization, or security check MUST adhere to the standards prescribed in the downloaded skills.
 
 ---
 
-### 0.1 Frontend, UI/UX & Creative Assets
-When working on UI components, layouts, typography, design assets, or presentations:
-- `.agents/skills/ui-ux-pro-max/` (Design intelligence, accessibility, UX patterns)
-- `.agents/skills/design-system/` (Three-layer tokens, component architecture)
-- `.agents/skills/ui-styling/` (Tailwind CSS, shadcn/ui integration)
-- `.agents/skills/design/` (Visual design fundamentals, layout composition)
-- `.agents/skills/brand/` (Tone of voice, branding assets, visual identity)
-- `.agents/skills/banner-design/` (Promotional assets, hero sections, media displays)
-- `.agents/skills/slides/` (HTML/CSS presentation decks, Chart.js visualizations)
-- `design-system/smart-building-cloud-platform/MASTER.md`
+### 0.1 Catalog of Active Downloaded Skills & Domain Mapping
+
+#### A. Global Governance & Project Guardrails (Always Active)
+- `.agent/skills/rules/` — Operational rules, coding standards, minimal change guardrails, and workflow constraints.
+
+#### B. Frontend, UI/UX, Design Tokens & Creative Assets
+When the prompt touches UI components, layouts, typography, design assets, modals, tables, or presentations:
+- `.agents/skills/ui-ux-pro-max/` — Design intelligence, WCAG AA/AAA accessibility, UX guidelines, responsive layout, data-dense dashboards.
+- `.agents/skills/design-system/` — Three-layer design tokens (primitive→semantic→component), component specifications, CSS variables.
+- `.agents/skills/ui-styling/` — Tailwind CSS utilities, shadcn/ui integration, color theme customization.
+- `.agents/skills/design/` — Visual design fundamentals, brand identity, layout composition.
+- `.agents/skills/brand/` — Tone of voice, visual identity, branded messaging frameworks.
+- `.agents/skills/banner-design/` — Hero banners, promotional assets, media displays.
+- `.agents/skills/slides/` — HTML/CSS presentation decks, Chart.js visualizations.
+- `design-system/smart-building-cloud-platform/MASTER.md` — Core design system tokens for The Oasis theme.
 
 **Core UI Directives:**
-1. **Semantic HTML First:** Use structured tags (`<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`, and `<table>` with `<caption>` and `scope`) before generic containers (`<div>`/`<span>`).
-2. **Design Language & Accessibility:** Match the dark technical theme defined in `MASTER.md` (WCAG AA/AAA compliance, strict focus rings `focus-visible:ring-2`, and accessible ARIA live states).
-3. **Animations & Micro-interactions:** Implement subtle UI motion (entry fades, pulse indicators for IoT stream telemetry, loading skeletons, and interactive states) without layout shift (CLS = 0).
+1. **Semantic HTML First:** Use structured tags (`<header>`, `<nav>`, `<main>`, `<section>`, `<article>`, `<aside>`, `<footer>`, `<table>` with `<caption>` and `scope`) before generic containers (`<div>`/`<span>`).
+2. **Design Language & Accessibility:** Match the dark technical / warm biophilic theme defined in `MASTER.md` (WCAG AA/AAA compliance, strict focus rings `focus-visible:ring-2`, accessible ARIA live states).
+3. **Animations & Micro-interactions:** Implement subtle UI motion (entry fades, pulse indicators for IoT telemetry, loading skeletons, interactive states) without layout shift (CLS = 0).
+
+#### C. Backend, API & Asynchronous Systems
+When the prompt touches endpoints, background workers, event consumers, or business logic:
+- `.agent/skills/fastapi-pro/` — FastAPI 0.100+, Annotated types, async dependency injection, Pydantic V2 validation, WebSockets, background tasks.
+- `.agent/skills/async-python-patterns/` — Python asyncio concurrency, non-blocking I/O, event loops, task groups.
+- `.agent/skills/architect-review/` — Clean architecture, Domain-Driven Design (DDD), domain layer boundaries, repository patterns.
+
+#### D. Database Engineering, Migrations & Reliability
+When the prompt touches database schemas, Alembic migrations, query optimization, indexing, or backups:
+- `.agent/skills/database-admin/` — PostgreSQL 16+, Alembic migrations, connection pooling (PgBouncer), query profiling (`EXPLAIN ANALYZE`), WAL archiving, pgBackRest, HA replication.
+
+#### E. Cloud Infrastructure, DevOps & Container Orchestration
+When the prompt touches IaC, cluster configurations, deployment pipelines, or dashboards:
+- `.agent/skills/cloud-architect/` — Multi-cloud infrastructure design, disaster recovery, FinOps cost optimization.
+- `.agent/skills/terraform-specialist/` — Terraform modules, state integrity, HCL conventions, policy as code.
+- `.agent/skills/kubernetes-architect/` — K8s manifests, probes, resource requests/limits, self-healing, progressive delivery.
+- `.agent/skills/grafana-dashboards/` — Prometheus metrics, Loki logs, operational observability dashboards.
+- `.agent/skills/github-actions-templates/` — Automated build, test, and release CI/CD workflows.
+
+#### F. Security Auditing & Compliance
+When the prompt touches authentication, authorization, access control, secrets, or security audits:
+- `.agent/skills/security-auditor/` — Threat modeling, secret hygiene, container security, OWASP standards, IDOR prevention, RBAC audit.
+
+#### G. AI & Telemetry Anomaly Detection
+When the prompt touches ML models, feature engineering, or anomaly detection pipelines:
+- `.agent/skills/ai-engineer/` — Isolation Forest, numerical ML, feature engineering, explainable anomaly scoring.
 
 ---
-
-### 0.2 Backend, API & Asynchronous Systems
-When building endpoints, background workers, event consumers, or business domain logic:
-- `.agent/skills/fastapi-pro/` (FastAPI, SQLAlchemy 2.0, Pydantic v2 validation)
-- `.agent/skills/async-python-patterns/` (Asyncio concurrency, non-blocking I/O)
-- `.agent/skills/architect-review/` (Clean architecture, DDD, domain layer boundaries)
-
----
-
-### 0.3 Database & Reliability
-When designing schemas, Alembic migrations, optimizing queries, or managing backups:
-- `.agent/skills/database-admin/` (PostgreSQL 16+, WAL archiving, pgBackRest, HA, query profiling)
-
----
-
-### 0.4 Cloud Infrastructure, DevOps & Security
-When working on IaC, cluster configurations, deployment pipelines, or security auditing:
-- `.agent/skills/cloud-architect/` (Multi-cloud infra design, disaster recovery)
-- `.agent/skills/terraform-specialist/` (Terraform modules, state integrity, HCL conventions)
-- `.agent/skills/kubernetes-architect/` (K8s manifests, probes, limits, self-healing)
-- `.agent/skills/grafana-dashboards/` (Prometheus metrics, Loki logs, dashboard specs)
-- `.agent/skills/github-actions-templates/` (Automated build, test, and release gates)
-- `.agent/skills/security-auditor/` (Threat modeling, secret hygiene, container security, OWASP)
-
----
-
-### 0.5 AI & Telemetry Anomaly Detection
-When implementing telemetry pipelines or ML models:
-- `.agent/skills/ai-engineer/` (Isolation Forest, feature engineering, explainable numerical ML)
-
----
-
-### 0.6 Execution Transparency Directive
-Whenever completing a non-trivial implementation, debugging session, or architectural review, the agent MUST include a concise metadata block at the top or bottom of the response:
-> `[Skills Applied: <comma-separated list of loaded skills or "None (Standard Base)">]`
 ---
 ## 1. Project Identity
 
@@ -1353,7 +1354,15 @@ Terraform secrets/state when inappropriate
 
 # 33. Agent Workflow
 
-For every non-trivial task, follow this process:
+For EVERY task and user prompt, follow this mandatory process:
+
+## Step 0 — Mandatory Skill Activation
+
+Before reading files or planning changes:
+1. Scan the active user prompt against the catalog in **Section 0**.
+2. Proactively load and review the relevant `SKILL.md` files from `.agent/skills/` and `.agents/skills/`.
+3. Plan and execute strictly according to the loaded skill guidelines.
+4. Always append the `[Skills Applied: ...]` metadata block in the final response.
 
 ## Step 1 — Understand
 

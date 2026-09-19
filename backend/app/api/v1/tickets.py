@@ -189,6 +189,22 @@ async def update_ticket_status(
 ):
     """Transition ticket state machine status with strict validation and audit note."""
     service = TicketService(db)
+    ticket_obj = await service.get_ticket_by_id(ticket_id)
+    if not ticket_obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy phiếu yêu cầu")
+
+    # Authorization & boundary check
+    if current_user.role not in ("admin", "technician"):
+        # Resident can only interact with their own apartment's ticket
+        if ticket_obj.apartment_id and current_user.apartment_id and ticket_obj.apartment_id != current_user.apartment_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Không có quyền cập nhật trạng thái yêu cầu của căn hộ khác")
+        # Resident can only transition from RESOLVED to CLOSED (resident acceptance confirmation)
+        if payload.status.lower() != "closed":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cư dân chỉ được phép đóng phiếu đã hoàn thành (closed). Các chuyển đổi trạng thái kỹ thuật yêu cầu kỹ thuật viên hoặc quản trị viên."
+            )
+
     try:
         ticket = await service.update_status(
             ticket_id=ticket_id,

@@ -60,4 +60,33 @@ __all__ = [
     "DashboardOverview",
     "EnergyDashboard",
     "WaterDashboard",
+    # Bulk Jobs & Rates
+    "BulkInvoiceGenerateRequest",
+    "BulkReminderSendRequest",
+    "BulkApprovalRequest",
+    "BillingRateUpdateRequest",
+    "BulkJobResponse",
+    "BillingRateResponse",
+    # Report Exports
+    "CollectionReportRequest",
+    "OverdueReportRequest",
+    "TicketsReportRequest",
+    "ReconciliationReportRequest",
+    "ReportExportResponse",
 ]
+
+from app.schemas.bulk_job import (
+    BulkInvoiceGenerateRequest,
+    BulkReminderSendRequest,
+    BulkApprovalRequest,
+    BillingRateUpdateRequest,
+    BulkJobResponse,
+    BillingRateResponse,
+)
+from app.schemas.report_export import (
+    CollectionReportRequest,
+    OverdueReportRequest,
+    TicketsReportRequest,
+    ReconciliationReportRequest,
+    ReportExportResponse,
+)

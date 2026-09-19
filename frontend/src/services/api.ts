@@ -40,6 +40,15 @@ import type {
   DeviceHealthResponse,
   UserWithRolesResponse,
   RoleItem,
+  ServiceRequest,
+  Amenity,
+  AmenityBooking,
+  AmenitySlotsResponse,
+  Announcement,
+  AnnouncementFeedResponse,
+  BulkJob,
+  BillingRate,
+  ReportExport,
 } from '../types';
 
 
@@ -502,6 +511,166 @@ export const api = {
   revokeUserRole: (userId: string, roleId: string): Promise<{ message: string }> => {
     return request<{ message: string }>(`/admin/users/${userId}/roles/${roleId}`, {
       method: 'DELETE',
+    });
+  },
+
+  // ---------------------------------------------------------------------------
+  // Priority 4: Self-Service Requests, Amenities & Community Bulletin Board
+  // ---------------------------------------------------------------------------
+  getMyServiceRequests: (): Promise<ServiceRequest[]> => {
+    return request<ServiceRequest[]>('/me/service-requests');
+  },
+
+  createServiceRequest: (payload: {
+    request_type: string;
+    title: string;
+    description: string;
+    apartment_id?: string;
+    scheduled_at?: string;
+    scheduled_slot?: string;
+    notes?: Record<string, any>;
+  }): Promise<ServiceRequest> => {
+    return request<ServiceRequest>('/service-requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getAmenities: (buildingId?: string): Promise<Amenity[]> => {
+    const q = buildingId ? `?building_id=${encodeURIComponent(buildingId)}` : '';
+    return request<Amenity[]>(`/amenities${q}`);
+  },
+
+  getAmenityAvailableSlots: (amenityId: string, date: string): Promise<AmenitySlotsResponse> => {
+    return request<AmenitySlotsResponse>(`/amenities/${amenityId}/available-slots?date=${encodeURIComponent(date)}`);
+  },
+
+  createAmenityBooking: (
+    amenityId: string,
+    payload: {
+      booking_date: string;
+      time_slot: string;
+      notes?: string;
+      apartment_id?: string;
+    }
+  ): Promise<AmenityBooking> => {
+    return request<AmenityBooking>(`/amenities/${amenityId}/bookings`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  cancelAmenityBooking: (bookingId: string): Promise<{ message: string }> => {
+    return request<{ message: string }>(`/amenities/bookings/${bookingId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getMyAmenityBookings: (): Promise<AmenityBooking[]> => {
+    return request<AmenityBooking[]>('/me/amenity-bookings');
+  },
+
+  getAnnouncements: (category?: string, buildingId?: string): Promise<AnnouncementFeedResponse> => {
+    const params = new URLSearchParams();
+    if (category && category !== 'all') params.append('category', category);
+    if (buildingId) params.append('building_id', buildingId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<AnnouncementFeedResponse>(`/announcements${qs}`);
+  },
+
+  markAnnouncementAsRead: (announcementId: string): Promise<{ message: string }> => {
+    return request<{ message: string }>(`/announcements/${announcementId}/read`, {
+      method: 'POST',
+    });
+  },
+
+  createAdminAnnouncement: (payload: {
+    building_id?: string;
+    title: string;
+    content: string;
+    category?: string;
+    priority?: string;
+    expires_at?: string;
+    pin_to_top?: boolean;
+    image_url?: string;
+  }): Promise<Announcement> => {
+    return request<Announcement>('/admin/announcements', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateAdminAnnouncement: (
+    announcementId: string,
+    payload: Partial<{
+      title: string;
+      content: string;
+      category: string;
+      priority: string;
+      expires_at: string | null;
+      pin_to_top: boolean;
+      image_url: string | null;
+      is_active: boolean;
+    }>
+  ): Promise<Announcement> => {
+    return request<Announcement>(`/admin/announcements/${announcementId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  deleteAdminAnnouncement: (announcementId: string): Promise<{ message: string }> => {
+    return request<{ message: string }>(`/admin/announcements/${announcementId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // --- Bulk Operations & Reports (Priority 5) ---
+  generateBulkInvoices: (payload: { building_id?: string; target_date?: string }): Promise<BulkJob> => {
+    return request<BulkJob>('/admin/bulk/invoices/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  sendBulkReminders: (payload: { building_id?: string; min_overdue_days?: number; apartment_ids?: string[] }): Promise<BulkJob> => {
+    return request<BulkJob>('/admin/bulk/reminders/send', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  approveBulkManualConfirmations: (payload: { confirmation_ids: string[]; note?: string }): Promise<BulkJob> => {
+    return request<BulkJob>('/admin/bulk/manual-confirmations/approve', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  updateBillingRates: (payload: {
+    building_id: string;
+    water_price_per_m3: number;
+    management_fee_per_sqm: number;
+    parking_fee_per_slot: number;
+    effective_date: string;
+  }): Promise<BillingRate> => {
+    return request<BillingRate>('/admin/billing-rates', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getBulkJobStatus: (jobId: string): Promise<BulkJob> => {
+    return request<BulkJob>(`/admin/bulk-jobs/${jobId}`);
+  },
+
+  exportReport: (
+    reportType: 'collection' | 'overdue' | 'tickets' | 'reconciliation',
+    params: Record<string, any>
+  ): Promise<ReportExport> => {
+    return request<ReportExport>(`/admin/reports/${reportType}`, {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   },
 };

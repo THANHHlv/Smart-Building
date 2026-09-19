@@ -69,3 +69,19 @@ api_v1_router.include_router(services_catalog_router)
 # Notifications
 api_v1_router.include_router(notifications_router)
 
+# Self-Service Requests, Amenities & Community Bulletin Board
+from app.api.v1.service_requests import router as service_requests_router
+from app.api.v1.amenities import router as amenities_router
+from app.api.v1.announcements import router as announcements_router
+
+api_v1_router.include_router(service_requests_router)
+api_v1_router.include_router(amenities_router)
+api_v1_router.include_router(announcements_router)
+
+# Bulk Operations & Report Exports (Priority 5)
+from app.api.v1.admin_bulk import router as admin_bulk_router
+from app.api.v1.admin_reports import router as admin_reports_router
+
+api_v1_router.include_router(admin_bulk_router)
+api_v1_router.include_router(admin_reports_router)
+

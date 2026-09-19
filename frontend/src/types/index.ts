@@ -606,3 +606,135 @@ export interface UserWithRolesResponse {
   created_at: string;
 }
 
+// -----------------------------------------------------------------------------
+// Priority 4: Self-Service Requests, Amenities & Community Bulletin Board
+// -----------------------------------------------------------------------------
+
+export type ServiceRequestType = 'cleaning' | 'periodic_maintenance' | 'vehicle_registration' | 'access_card' | 'other';
+
+export interface ServiceRequest {
+  id: string;
+  ticket_id: string;
+  request_type: ServiceRequestType | string;
+  scheduled_at?: string | null;
+  scheduled_slot?: string | null;
+  notes: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  ticket_status: string;
+  ticket_title: string;
+  ticket_description: string;
+  ticket_priority: string;
+  apartment_unit?: string | null;
+  technician_name?: string | null;
+  rating?: number | null;
+  rating_comment?: string | null;
+}
+
+export interface Amenity {
+  id: string;
+  building_id: string;
+  name: string;
+  description?: string | null;
+  capacity: number;
+  available_slots: string[];
+  requires_approval: boolean;
+  is_active: boolean;
+}
+
+export interface AmenitySlot {
+  time_slot: string;
+  is_available: boolean;
+  booking_id?: string | null;
+  status?: string | null;
+  is_own_booking: boolean;
+}
+
+export interface AmenitySlotsResponse {
+  amenity_id: string;
+  amenity_name: string;
+  capacity: number;
+  requires_approval: boolean;
+  booking_date: string;
+  slots: AmenitySlot[];
+}
+
+export interface AmenityBooking {
+  id: string;
+  amenity_id: string;
+  amenity_name: string;
+  apartment_id: string;
+  apartment_unit?: string | null;
+  user_id: string;
+  user_name?: string | null;
+  booking_date: string;
+  time_slot: string;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed' | string;
+  notes?: string | null;
+  created_at: string;
+}
+
+export type AnnouncementCategory = 'maintenance' | 'event' | 'safety' | 'general';
+export type AnnouncementPriority = 'urgent' | 'standard';
+
+export interface Announcement {
+  id: string;
+  building_id: string;
+  title: string;
+  content: string;
+  category: AnnouncementCategory | string;
+  priority: AnnouncementPriority | string;
+  published_by?: string | null;
+  publisher_name?: string | null;
+  published_at: string;
+  expires_at?: string | null;
+  pin_to_top: boolean;
+  image_url?: string | null;
+  is_active: boolean;
+  is_read?: boolean;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface AnnouncementFeedResponse {
+  items: Announcement[];
+  total_unread: number;
+  total_count: number;
+}
+
+// --- Bulk Operations & Report Exports (Priority 5) ---
+export interface BulkJob {
+  id: string;
+  job_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  total_items: number;
+  processed_items: number;
+  failed_items: number;
+  created_by?: string | null;
+  created_at: string;
+  finished_at?: string | null;
+  error_summary?: any[];
+}
+
+export interface ReportExport {
+  id: string;
+  report_type: 'collection' | 'overdue' | 'tickets' | 'reconciliation';
+  params: Record<string, any>;
+  format: 'xlsx' | 'pdf' | 'csv';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  file_url: string | null;
+  file_size_bytes: number;
+  requested_at: string;
+  expires_at: string | null;
+}
+
+export interface BillingRate {
+  id: string;
+  building_id: string;
+  water_price_per_m3: number;
+  management_fee_per_sqm: number;
+  parking_fee_per_slot: number;
+  effective_date: string;
+  created_at: string;
+}
+

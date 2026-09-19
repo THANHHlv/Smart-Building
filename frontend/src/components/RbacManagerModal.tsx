@@ -14,14 +14,16 @@ import { api } from '../services/api';
 import type { UserWithRolesResponse, RoleItem, Building as BuildingType } from '../types';
 
 interface RbacManagerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
   onRolesUpdated?: () => void;
 }
 
 export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
   isOpen,
   onClose,
+  asPage = false,
   onRolesUpdated,
 }) => {
   const [users, setUsers] = useState<UserWithRolesResponse[]>([]);
@@ -73,12 +75,12 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadData();
     }
-  }, [isOpen, loadData]);
+  }, [isOpen, asPage, loadData]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   const handleOpenAssign = (user: UserWithRolesResponse) => {
     setSelectedUser(user);
@@ -153,37 +155,25 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
     }
   };
 
-  return (
+  const content = (
     <div
+      className="page-view-container animate-fade-in"
       style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(25, 20, 18, 0.65)',
-        backdropFilter: 'blur(6px)',
-        zIndex: 10000,
+        width: '100%',
+        maxWidth: asPage ? '100%' : '1080px',
+        maxHeight: asPage ? 'none' : '90vh',
+        minHeight: asPage ? 'calc(100vh - 160px)' : undefined,
+        backgroundColor: '#FAF7F2',
+        borderRadius: '16px',
+        border: '1px solid #E5DCCE',
+        boxShadow: asPage ? '0 2px 12px rgba(45, 40, 37, 0.05)' : '0 20px 50px rgba(0, 0, 0, 0.25)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        animation: 'fadeIn 0.2s ease',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        color: '#2D2825',
+        fontFamily: 'var(--font-sans, system-ui, sans-serif)',
       }}
     >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1080px',
-          maxHeight: '90vh',
-          backgroundColor: '#FAF7F2',
-          borderRadius: '16px',
-          border: '1px solid #E5DCCE',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          color: '#2D2825',
-          fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-        }}
-      >
         {/* Header */}
         <div
           style={{
@@ -242,19 +232,21 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
               <span>Làm mới</span>
             </button>
 
-            <button
-              onClick={onClose}
-              style={{
-                padding: '8px',
-                backgroundColor: '#FAF7F2',
-                border: '1px solid #E5DCCE',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                color: '#786F66',
-              }}
-            >
-              <X size={18} />
-            </button>
+            {!asPage && onClose && (
+              <button
+                onClick={onClose}
+                style={{
+                  padding: '8px',
+                  backgroundColor: '#FAF7F2',
+                  border: '1px solid #E5DCCE',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  color: '#786F66',
+                }}
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -652,6 +644,26 @@ export const RbacManagerModal: React.FC<RbacManagerModalProps> = ({
           </div>
         )}
       </div>
+  );
+
+  if (asPage) return content;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(25, 20, 18, 0.65)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        animation: 'fadeIn 0.2s ease',
+      }}
+    >
+      {content}
     </div>
   );
 };

@@ -26,6 +26,8 @@ import {
   Thermometer,
   Wrench,
   Zap,
+  Newspaper,
+  CalendarCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { ResidentDashboardResponse } from '../types';
@@ -37,6 +39,8 @@ interface ResidentDashboardProps {
   isLoading: boolean;
   onRefresh?: () => void;
   onOpenMaintenance?: () => void;
+  onOpenServiceHub?: () => void;
+  onOpenBulletin?: () => void;
 }
 
 export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
@@ -44,6 +48,8 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
   isLoading,
   onRefresh,
   onOpenMaintenance,
+  onOpenServiceHub,
+  onOpenBulletin,
 }) => {
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -243,6 +249,30 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
               Mã bảo mật căn hộ: <span style={{ color: '#38bdf8' }}>{apartment.id.slice(0, 8)}</span>
             </span>
 
+            {onOpenServiceHub && (
+              <button
+                onClick={onOpenServiceHub}
+                className="btn-secondary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'rgba(74, 124, 89, 0.15)',
+                  border: '1px solid rgba(74, 124, 89, 0.35)',
+                  color: '#4A7C59',
+                  padding: '7px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <CalendarCheck size={15} />
+                Yêu Cầu & Tiện Ích
+              </button>
+            )}
+
             {onOpenMaintenance && (
               <button
                 onClick={onOpenMaintenance}
@@ -269,6 +299,114 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Community Bulletin & Self-Service Shortcuts Banner */}
+      {(onOpenBulletin || onOpenServiceHub) && (
+        <section
+          className="glass-panel"
+          style={{
+            padding: '16px 20px',
+            background: 'linear-gradient(135deg, rgba(217, 107, 67, 0.08), rgba(74, 124, 89, 0.08))',
+            border: '1px solid rgba(217, 107, 67, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '14px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(217, 107, 67, 0.15)',
+                border: '1px solid rgba(217, 107, 67, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#D96B43',
+                flexShrink: 0,
+              }}
+            >
+              <Newspaper size={22} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                  Không Gian Sinh Hoạt Cư Dân
+                </h3>
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: 'rgba(74, 124, 89, 0.15)',
+                    color: '#4A7C59',
+                    border: '1px solid rgba(74, 124, 89, 0.3)',
+                  }}
+                >
+                  Dịch vụ & Tin tức mới
+                </span>
+              </div>
+              <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Xem thông báo bảo trì, sự kiện toà nhà hoặc đặt lịch dọn vệ sinh, bảo trì điều hoà, sân chơi cộng đồng
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {onOpenBulletin && (
+              <button
+                onClick={onOpenBulletin}
+                className="btn-primary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: '#D96B43',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 2px 8px rgba(217, 107, 67, 0.3)',
+                }}
+              >
+                <Newspaper size={14} />
+                <span>Xem Bảng Tin</span>
+              </button>
+            )}
+
+            {onOpenServiceHub && (
+              <button
+                onClick={onOpenServiceHub}
+                className="btn-secondary"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(74, 124, 89, 0.15)',
+                  border: '1px solid rgba(74, 124, 89, 0.4)',
+                  color: '#4A7C59',
+                }}
+              >
+                <CalendarCheck size={14} />
+                <span>Đặt Tiện Ích & Dịch Vụ</span>
+              </button>
+            )}
+          </div>
+        </section>
+      )}
 
 
       {/* 2. Personal KPI Grid */}

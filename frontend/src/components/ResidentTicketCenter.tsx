@@ -19,13 +19,13 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { api } from '../services/api';
 import type { Ticket, TicketCategory, TicketDetail } from '../types';
 
 interface ResidentTicketCenterProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  asPage?: boolean;
   apartmentId?: string | null;
   apartmentUnit?: string | null;
 }
@@ -98,6 +98,7 @@ const CATEGORIES: {
 export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
   isOpen,
   onClose,
+  asPage = false,
   apartmentId,
   apartmentUnit,
 }) => {
@@ -143,10 +144,10 @@ export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || asPage) {
       loadMyTickets();
     }
-  }, [isOpen]);
+  }, [isOpen, asPage]);
 
   // Load ticket details when selected
   const loadTicketDetail = async (id: string) => {
@@ -317,7 +318,7 @@ export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !asPage) return null;
 
   const currentCategoryObj = CATEGORIES.find((c) => c.key === selectedCategory) || CATEGORIES[0];
 
@@ -330,38 +331,22 @@ export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
     return 0;
   };
 
-  return (
+  const content = (
     <div
+      className="page-view-container animate-fade-in"
       style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
+        width: '100%',
+        maxWidth: asPage ? '100%' : '1100px',
+        height: asPage ? 'calc(100vh - 160px)' : '90vh',
+        background: '#FAF7F2',
+        border: '1px solid #EFE9DF',
+        borderRadius: '16px',
+        boxShadow: asPage ? '0 2px 12px rgba(45, 40, 37, 0.05)' : '0 25px 50px -12px rgba(45, 40, 37, 0.2)',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(45, 40, 37, 0.45)',
-        backdropFilter: 'blur(6px)',
-        padding: '16px',
+        flexDirection: 'column',
+        overflow: 'hidden',
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ duration: 0.2 }}
-        style={{
-          width: '100%',
-          maxWidth: '860px',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          background: '#FAF7F2',
-          border: '1px solid #EFE9DF',
-          borderRadius: '16px',
-          boxShadow: '0 20px 40px -10px rgba(45, 40, 37, 0.15)',
-          overflow: 'hidden',
-        }}
-      >
         {/* Header */}
         <div
           style={{
@@ -494,24 +479,26 @@ export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
               </button>
             </div>
 
-            <button
-              onClick={onClose}
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: '8px',
-                border: '1px solid #E5DFD5',
-                background: '#FFFFFF',
-                color: '#736B63',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Đóng"
-            >
-              <X size={18} />
-            </button>
+            {!asPage && onClose && (
+              <button
+                onClick={onClose}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '8px',
+                  border: '1px solid #E5DFD5',
+                  background: '#FFFFFF',
+                  color: '#736B63',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Đóng"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1588,7 +1575,26 @@ export const ResidentTicketCenter: React.FC<ResidentTicketCenterProps> = ({
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
+    );
+
+  if (asPage) return content;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(45, 40, 37, 0.45)',
+        backdropFilter: 'blur(6px)',
+        padding: '16px',
+      }}
+    >
+      {content}
     </div>
   );
 };

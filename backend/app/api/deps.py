@@ -106,10 +106,10 @@ async def fetch_user_roles(user: User, db: AsyncSession) -> set[str]:
     result = await db.execute(stmt)
     roles = set(result.scalars().all())
 
-    if not roles and user.role == "admin":
-        return {"super_admin", "admin"}
-    if not roles and user.role == "resident":
-        return {"resident"}
+    if not roles and user.role:
+        if user.role == "admin":
+            return {"super_admin", "admin"}
+        return {user.role}
 
     return roles
 

@@ -81,7 +81,13 @@ class TicketService:
         source: TicketSource = TicketSource.RESIDENT_REPORT,
     ) -> Ticket:
         """Create a new ticket from resident or admin with initial status history and SLA."""
-        target_apt_id = data.apartment_id or creator.apartment_id
+        # Enforce apartment boundary: resident can only create tickets for their own apartment
+        if creator.role != "admin":
+            if data.apartment_id and creator.apartment_id and data.apartment_id != creator.apartment_id:
+                raise ValueError("Bạn không có quyền tạo phiếu yêu cầu cho căn hộ khác")
+            target_apt_id = creator.apartment_id
+        else:
+            target_apt_id = data.apartment_id or creator.apartment_id
 
         # Determine priority
         try:
@@ -368,8 +374,10 @@ class TicketService:
         if not ticket:
             raise ValueError("Không tìm thấy phiếu yêu cầu xử lý")
 
-        # Residents cannot create internal comments
-        if user.role != "admin" and user.role != "technician":
+        # Residents cannot create internal comments or comment on other apartments' tickets
+        if user.role not in ("admin", "technician"):
+            if ticket.apartment_id and user.apartment_id and ticket.apartment_id != user.apartment_id:
+                raise ValueError("Bạn không có quyền bình luận trên yêu cầu của căn hộ khác")
             is_internal = False
 
         comment = TicketComment(
@@ -401,6 +409,11 @@ class TicketService:
         ticket = await self.get_ticket_by_id(ticket_id)
         if not ticket:
             raise ValueError("Không tìm thấy phiếu yêu cầu xử lý")
+
+        # IDOR check: residents cannot upload attachments to other apartments' tickets
+        if user.role not in ("admin", "technician"):
+            if ticket.apartment_id and user.apartment_id and ticket.apartment_id != user.apartment_id:
+                raise ValueError("Bạn không có quyền đính kèm tệp vào yêu cầu của căn hộ khác")
 
         attachment = TicketAttachment(
             ticket_id=ticket.id,
@@ -456,6 +469,10 @@ class TicketService:
 
         if ticket.status != TicketStatus.RESOLVED:
             raise ValueError("Chỉ có thể mở lại phiếu đang ở trạng thái Hoàn thành (Resolved)")
+
+        if resident.role not in ("admin", "technician"):
+            if ticket.apartment_id and resident.apartment_id and ticket.apartment_id != resident.apartment_id:
+                raise ValueError("Bạn chỉ có thể mở lại yêu cầu của căn hộ mình")
 
         note = f"Cư dân yêu cầu xử lý lại: {reason.strip()}"
         return await self.update_status(ticket_id, TicketStatus.REOPENED.value, resident, note=note)

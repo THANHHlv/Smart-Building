@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin
@@ -27,6 +27,9 @@ async def list_devices(
 ):
     """List devices with pagination and optional apartment filter."""
     service = DeviceService(db)
+    # Non-privileged residents can only see devices assigned to their own apartment
+    if _current_user.role not in ("admin", "technician"):
+        apartment_id = _current_user.apartment_id
     result = await service.list(page=page, page_size=page_size, apartment_id=apartment_id)
     result.items = [DeviceResponse.model_validate(d) for d in result.items]
     return result
@@ -62,6 +65,11 @@ async def get_device(
     device = await service.get_by_id(device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+    if _current_user.role not in ("admin", "technician") and device.apartment_id != _current_user.apartment_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền xem thông tin thiết bị ngoài căn hộ của mình",
+        )
     return device
 
 

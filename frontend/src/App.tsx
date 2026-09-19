@@ -6,6 +6,7 @@ import { DashboardView } from './components/DashboardView';
 import { Header } from './components/Header';
 import { LoginPage } from './components/LoginPage';
 import { MaintenanceModal } from './components/MaintenanceModal';
+import { Navbar, type PageId } from './components/Navbar';
 import { ResidentDashboard } from './components/ResidentDashboard';
 import { UserManager } from './components/UserManager';
 import { MyServices } from './components/MyServices';
@@ -13,6 +14,9 @@ import { TicketKanban } from './components/TicketKanban';
 import { ResidentTicketCenter } from './components/ResidentTicketCenter';
 import { AdminOperationsDashboard } from './components/AdminOperationsDashboard';
 import { RbacManagerModal } from './components/RbacManagerModal';
+import { ServiceRequestHub } from './components/ServiceRequestHub';
+import { CommunityBulletin } from './components/CommunityBulletin';
+import { AnnouncementEditorModal } from './components/AnnouncementEditorModal';
 import { api, clearAuthToken, restoreAuthToken, setAuthToken, setOnAuthError } from './services/api';
 import type {
   AiSuggestedAction,
@@ -25,6 +29,24 @@ import type {
   WaterDashboard,
 } from './types';
 
+const getPageFromHash = (): PageId => {
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  const validPages: PageId[] = [
+    'overview',
+    'operations',
+    'residents',
+    'tickets',
+    'billing',
+    'services',
+    'bulletin',
+    'rbac',
+    'maintenance',
+  ];
+  if (validPages.includes(hash as PageId)) {
+    return hash as PageId;
+  }
+  return 'overview';
+};
 
 export const App: React.FC = () => {
   // Auth state
@@ -32,6 +54,9 @@ export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true); // true while restoring session
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Active page state synchronized with URL hash
+  const [activePage, setActivePage] = useState<PageId>(getPageFromHash);
 
   // Admin Dashboard data
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -45,18 +70,39 @@ export const App: React.FC = () => {
   // Resident Dashboard data
   const [residentDashboard, setResidentDashboard] = useState<ResidentDashboardResponse | null>(null);
 
-  // Real-world operational modal states
-  const [isUserManagerOpen, setIsUserManagerOpen] = useState(false);
-  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
-  const [isTicketsOpen, setIsTicketsOpen] = useState(false);
+  // Overlay / Drawer states
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
-  const [isBillingOpen, setIsBillingOpen] = useState(false);
-  const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
-  const [isRbacManagerOpen, setIsRbacManagerOpen] = useState(false);
+  const [isAnnouncementEditorOpen, setIsAnnouncementEditorOpen] = useState(false);
+  const [unreadAnnouncementsCount, setUnreadAnnouncementsCount] = useState(0);
   const [unassignedCount, setUnassignedCount] = useState(0);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const navigateToPage = useCallback((page: PageId) => {
+    setActivePage(page);
+    window.location.hash = `#/${page}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActivePage(getPageFromHash());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const loadUnreadAnnouncements = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const feed = await api.getAnnouncements();
+      setUnreadAnnouncementsCount(feed.total_unread || 0);
+    } catch (err) {
+      console.error('Failed to load announcements unread count:', err);
+    }
+  }, [isAuthenticated]);
 
   // Handle auth expiration (401 from API)
   const handleAuthExpired = useCallback(() => {
@@ -101,13 +147,13 @@ export const App: React.FC = () => {
         if (watRes.status === 'fulfilled' && watRes.value?.items) setWaterReadings(watRes.value.items);
         if (unassignedUsers.status === 'fulfilled') setUnassignedCount(unassignedUsers.value.length);
       }
+      loadUnreadAnnouncements();
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
       setIsRefreshing(false);
     }
-  }, [currentUser, isAuthenticated]);
-
+  }, [currentUser, isAuthenticated, loadUnreadAnnouncements]);
 
   // --- Login handler ---
   const handleLogin = async (email: string, password: string) => {
@@ -193,6 +239,16 @@ export const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [autoRefresh, isAuthenticated, loadData]);
 
+  // Role access guard for admin pages
+  useEffect(() => {
+    if (!authLoading && currentUser && currentUser.role !== 'admin') {
+      const adminOnlyPages: PageId[] = ['operations', 'residents', 'rbac'];
+      if (adminOnlyPages.includes(activePage)) {
+        navigateToPage('overview');
+      }
+    }
+  }, [currentUser, authLoading, activePage, navigateToPage]);
+
   // --- Show initial loading spinner while restoring session ---
   if (authLoading && !isAuthenticated) {
     return (
@@ -224,20 +280,19 @@ export const App: React.FC = () => {
   // Handle interactive action from AI Assistant drawer
   const handleAiAction = (action: AiSuggestedAction) => {
     if (action.action_type === 'modal' && (action.target === 'maintenance_modal' || action.target === 'tickets_modal')) {
-      setIsTicketsOpen(true);
+      navigateToPage('tickets');
     } else if (action.action_type === 'modal' && action.target === 'billing_modal') {
-      setIsBillingOpen(true);
+      navigateToPage('billing');
     } else if (action.action_type === 'navigate' && action.target === 'user_management') {
-      setIsUserManagerOpen(true);
+      navigateToPage('residents');
     }
   };
 
-  // --- Main Dashboard (authenticated) ---
   const isAdmin = currentUser?.role === 'admin';
 
   return (
     <div className="app-container">
-      {/* 1. Header */}
+      {/* 1. Header (Brand, User Info, Telemetry status) */}
       <Header
         currentUser={currentUser}
         onLogout={handleLogout}
@@ -245,85 +300,147 @@ export const App: React.FC = () => {
         isRefreshing={isRefreshing}
         autoRefresh={autoRefresh}
         onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
-        onOpenUserManager={() => setIsUserManagerOpen(true)}
-        onOpenMaintenance={() => setIsMaintenanceOpen(true)}
-        onOpenTickets={() => setIsTicketsOpen(true)}
-        onOpenBilling={() => setIsBillingOpen(true)}
         onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
-        onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
-        onOpenRbacManager={() => setIsRbacManagerOpen(true)}
-        unassignedUsersCount={unassignedCount}
+        onOpenBulletin={() => navigateToPage('bulletin')}
+        unreadAnnouncementsCount={unreadAnnouncementsCount}
       />
 
-      {/* 2. Main Body Content (Admin vs Resident Split) */}
-      <main id="main-content" className="dashboard-main">
-        {isAdmin ? (
-          <DashboardView
-            overview={overview}
-            energy={energy}
-            water={water}
-            devices={devices}
-            alerts={alerts}
-            elecReadings={elecReadings}
-            waterReadings={waterReadings}
-            isLoading={isRefreshing}
-            onRefresh={loadData}
+      {/* 2. Main Tabbed Navigation Bar */}
+      <Navbar
+        currentUser={currentUser}
+        activePage={activePage}
+        onSelectPage={navigateToPage}
+        unassignedUsersCount={unassignedCount}
+        unreadAnnouncementsCount={unreadAnnouncementsCount}
+      />
+
+      {/* 3. Main Dedicated Page View Container */}
+      <main id="main-content" className="dashboard-main" style={{ minHeight: 'calc(100vh - 200px)' }}>
+        {/* Page: Overview */}
+        {activePage === 'overview' && (
+          isAdmin ? (
+            <DashboardView
+              overview={overview}
+              energy={energy}
+              water={water}
+              devices={devices}
+              alerts={alerts}
+              elecReadings={elecReadings}
+              waterReadings={waterReadings}
+              isLoading={isRefreshing}
+              onRefresh={loadData}
+            />
+          ) : (
+            <ResidentDashboard
+              data={residentDashboard}
+              isLoading={isRefreshing}
+              onRefresh={loadData}
+              onOpenMaintenance={() => navigateToPage('tickets')}
+              onOpenServiceHub={() => navigateToPage('services')}
+              onOpenBulletin={() => navigateToPage('bulletin')}
+            />
+          )
+        )}
+
+        {/* Page: Operations (Admin only) */}
+        {activePage === 'operations' && isAdmin && (
+          <AdminOperationsDashboard
+            asPage={true}
+            onOpenRbac={() => navigateToPage('rbac')}
+            onOpenAnnouncementEditor={() => setIsAnnouncementEditorOpen(true)}
+            onOpenBulletin={() => navigateToPage('bulletin')}
           />
-        ) : (
-          <ResidentDashboard
-            data={residentDashboard}
-            isLoading={isRefreshing}
-            onRefresh={loadData}
-            onOpenMaintenance={() => setIsTicketsOpen(true)}
+        )}
+
+        {/* Page: Residents Management (Admin only) */}
+        {activePage === 'residents' && isAdmin && (
+          <UserManager
+            asPage={true}
+            onUserUpdated={loadData}
+          />
+        )}
+
+        {/* Page: Tickets (Admin Kanban vs Resident Ticket Center) */}
+        {activePage === 'tickets' && (
+          isAdmin ? (
+            <TicketKanban asPage={true} />
+          ) : (
+            <ResidentTicketCenter
+              asPage={true}
+              apartmentId={currentUser?.apartment_id}
+              apartmentUnit={currentUser?.apartment_unit}
+            />
+          )
+        )}
+
+        {/* Page: Billing & Invoices (Admin Invoices vs Resident My Services) */}
+        {activePage === 'billing' && (
+          isAdmin ? (
+            <BillingInvoices asPage={true} />
+          ) : (
+            <MyServices asPage={true} />
+          )
+        )}
+
+        {/* Page: Amenity Bookings & Service Requests */}
+        {activePage === 'services' && (
+          <ServiceRequestHub
+            asPage={true}
+            currentUser={currentUser}
+            onSuccess={loadData}
+          />
+        )}
+
+        {/* Page: Community Bulletin Feed */}
+        {activePage === 'bulletin' && (
+          <CommunityBulletin
+            asPage={true}
+            currentUser={currentUser}
+            onOpenEditor={isAdmin ? () => setIsAnnouncementEditorOpen(true) : undefined}
+            onUnreadCountChanged={(count) => setUnreadAnnouncementsCount(count)}
+          />
+        )}
+
+        {/* Page: Maintenance Schedule */}
+        {activePage === 'maintenance' && (
+          <MaintenanceModal
+            asPage={true}
+            isAdmin={isAdmin}
+            apartmentUnit={currentUser?.apartment_unit || undefined}
+            onTicketChanged={loadData}
+          />
+        )}
+
+        {/* Page: RBAC Permission Manager (Admin only) */}
+        {activePage === 'rbac' && isAdmin && (
+          <RbacManagerModal
+            asPage={true}
+            onRolesUpdated={loadData}
           />
         )}
       </main>
 
-      {/* 3. Operational Modals */}
+      {/* 4. Action Modals & Drawers */}
       {isAdmin && (
-        <AdminOperationsDashboard
-          isOpen={isAdminDashboardOpen}
-          onClose={() => setIsAdminDashboardOpen(false)}
-          onOpenRbac={() => setIsRbacManagerOpen(true)}
+        <AnnouncementEditorModal
+          isOpen={isAnnouncementEditorOpen}
+          onClose={() => setIsAnnouncementEditorOpen(false)}
+          onPublished={() => {
+            loadUnreadAnnouncements();
+            navigateToPage('bulletin');
+          }}
         />
       )}
 
-      {isAdmin && (
-        <RbacManagerModal
-          isOpen={isRbacManagerOpen}
-          onClose={() => setIsRbacManagerOpen(false)}
-          onRolesUpdated={loadData}
-        />
-      )}
+      <AiAssistantDrawer
+        isOpen={isAiAssistantOpen}
+        onClose={() => setIsAiAssistantOpen(false)}
+        isAdmin={isAdmin}
+        apartmentUnit={currentUser?.apartment_unit || undefined}
+        onActionTrigger={handleAiAction}
+      />
 
-      {isAdmin && (
-        <UserManager isOpen={isUserManagerOpen} onClose={() => setIsUserManagerOpen(false)} />
-      )}
-
-      {isAdmin && (
-        <TicketKanban isOpen={isTicketsOpen} onClose={() => setIsTicketsOpen(false)} />
-      )}
-
-      {!isAdmin && (
-        <ResidentTicketCenter
-          isOpen={isTicketsOpen}
-          onClose={() => setIsTicketsOpen(false)}
-          apartmentId={currentUser?.apartment_id}
-          apartmentUnit={currentUser?.apartment_unit}
-        />
-      )}
-      
-      <MaintenanceModal isOpen={isMaintenanceOpen} onClose={() => setIsMaintenanceOpen(false)} isAdmin={isAdmin} />
-      
-      {isAdmin && (
-        <BillingInvoices isOpen={isBillingOpen} onClose={() => setIsBillingOpen(false)} />
-      )}
-
-      {!isAdmin && isBillingOpen && (
-        <MyServices onClose={() => setIsBillingOpen(false)} />
-      )}
-
-      {/* 3. Footer */}
+      {/* 5. Footer */}
       <footer
         className="glass-panel"
         style={{
@@ -336,6 +453,7 @@ export const App: React.FC = () => {
           fontSize: '0.75rem',
           color: 'var(--text-muted)',
           borderTop: '1px solid var(--border-medium)',
+          marginTop: '24px',
         }}
       >
         <div style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -360,35 +478,7 @@ export const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* 4. Modals and Drawers */}
-      <UserManager
-        isOpen={isUserManagerOpen}
-        onClose={() => setIsUserManagerOpen(false)}
-        onUserUpdated={loadData}
-      />
-
-      <MaintenanceModal
-        isOpen={isMaintenanceOpen}
-        onClose={() => setIsMaintenanceOpen(false)}
-        isAdmin={isAdmin}
-        apartmentUnit={currentUser?.apartment_unit}
-        onTicketChanged={loadData}
-      />
-
-      <AiAssistantDrawer
-        isOpen={isAiAssistantOpen}
-        onClose={() => setIsAiAssistantOpen(false)}
-        isAdmin={isAdmin}
-        apartmentUnit={currentUser?.apartment_unit}
-        onActionTrigger={handleAiAction}
-      />
-
-      <BillingInvoices
-        isOpen={isBillingOpen}
-        onClose={() => setIsBillingOpen(false)}
-      />
-
-      {/* 5. Floating AI Assistant Launcher Button */}
+      {/* 6. Floating AI Assistant Launcher Button */}
       {!isAiAssistantOpen && (
         <button
           onClick={() => setIsAiAssistantOpen(true)}
@@ -419,7 +509,6 @@ export const App: React.FC = () => {
         </button>
       )}
     </div>
-
   );
 };
 

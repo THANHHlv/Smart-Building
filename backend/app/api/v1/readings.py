@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin, require_permission
@@ -81,6 +81,16 @@ async def get_device_readings(
     db: AsyncSession = Depends(get_db),
 ):
     """Get sensor readings for a specific device."""
+    if _current_user.role not in ("admin", "technician"):
+        from app.services.device_service import DeviceService
+        dev_svc = DeviceService(db)
+        dev = await dev_svc.get_by_id(device_id)
+        if not dev or (_current_user.apartment_id and dev.apartment_id != _current_user.apartment_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn không có quyền xem dữ liệu cảm biến của thiết bị ngoài căn hộ của mình",
+            )
+
     service = ReadingService(db)
     result = await service.get_by_device(
         device_id=device_id,

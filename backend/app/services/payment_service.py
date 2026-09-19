@@ -36,12 +36,12 @@ class PaymentService:
 
     async def get_invoices(
         self,
-        apartment_id: UUID,
+        apartment_id: UUID | None = None,
         status: str | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> list[Invoice]:
-        """Get invoices for an apartment with optional status filter."""
+        """Get invoices for an apartment (or all apartments if None) with optional status filter."""
         return await self.invoice_repo.get_by_apartment(
             apartment_id=apartment_id,
             status=status,
@@ -210,6 +210,43 @@ class PaymentService:
         # 5. Update transaction status
         old_status = transaction.status.value
         new_status = TransactionStatus(result.status)
+
+        # 5.1 Verify amount matches expected transaction amount (prevent price tampering)
+        if new_status == TransactionStatus.SUCCESS and abs(result.amount - float(transaction.amount)) >= 0.01:
+            logger.warning(
+                "webhook_amount_mismatch",
+                transaction_id=str(transaction.id),
+                expected_amount=float(transaction.amount),
+                received_amount=result.amount,
+                provider=provider,
+            )
+            transaction.status = TransactionStatus.FAILED
+            transaction.provider_response_code = result.response_code
+            transaction.provider_message = (
+                f"Lỗi sai lệch số tiền: Hoá đơn yêu cầu {float(transaction.amount):,.0f}đ, "
+                f"cổng thanh toán phản hồi {result.amount:,.0f}đ"
+            )
+            await self.session.flush()
+            await self._audit_log(
+                transaction_id=transaction.id,
+                event_type="webhook_amount_mismatch",
+                old_status=old_status,
+                new_status=TransactionStatus.FAILED.value,
+                actor="webhook",
+                ip_address=ip_address,
+                metadata={
+                    "expected_amount": float(transaction.amount),
+                    "received_amount": result.amount,
+                    "provider": provider,
+                },
+            )
+            return {
+                "status": "amount_mismatch",
+                "transaction_id": str(transaction.id),
+                "expected": float(transaction.amount),
+                "received": result.amount,
+            }
+
         transaction.status = new_status
         transaction.provider_txn_id = result.provider_txn_id
         transaction.provider_response_code = result.response_code
