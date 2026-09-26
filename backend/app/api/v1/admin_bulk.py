@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_role
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.payment import PendingManualConfirmationResponse
+from app.services.payment_service import PaymentService
 from app.schemas.bulk_job import (
     BillingRateResponse,
     BillingRateUpdateRequest,
@@ -20,6 +22,15 @@ from app.schemas.bulk_job import (
 from app.services.bulk_job_service import BulkJobService
 
 router = APIRouter(prefix="/admin", tags=["Admin Bulk Operations"])
+
+
+@router.get("/manual-confirmations", response_model=list[PendingManualConfirmationResponse])
+async def list_pending_manual_confirmations(
+    _current_user: Annotated[User, Depends(require_role("accountant", "building_admin", "super_admin"))],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """List pending resident transfer reports awaiting bank reconciliation."""
+    return await PaymentService(db).list_pending_manual_confirmations()
 
 
 @router.post(

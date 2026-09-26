@@ -2,16 +2,26 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.service_request import ServiceRequestCreate, ServiceRequestResponse
 from app.services.service_request_service import ServiceRequestService
 
 router = APIRouter(tags=["Self-Service Requests"])
+
+
+@router.get("/admin/service-requests", response_model=list[ServiceRequestResponse])
+async def list_admin_service_requests(
+    _admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Management queue for resident service requests."""
+    return await ServiceRequestService(db).list_admin_service_requests(limit=limit)
 
 
 @router.post(

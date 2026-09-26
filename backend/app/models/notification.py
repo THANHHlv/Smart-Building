@@ -135,6 +135,7 @@ class Notification(Base, UUIDPrimaryKeyMixin):
         Index(
             "ix_notifications_idempotency_key",
             "idempotency_key",
+            "channel",
             unique=True,
             postgresql_where=text("idempotency_key IS NOT NULL"),
         ),

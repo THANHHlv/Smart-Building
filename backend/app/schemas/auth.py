@@ -31,6 +31,8 @@ class UserProfile(BaseModel):
     apartment_id: uuid.UUID | None
     apartment_unit: str | None = None
     building_name: str | None = None
+    avatar_url: str | None = None
+    phone: str | None = None
     is_active: bool
 
 
@@ -51,3 +53,11 @@ class DemoAccount(BaseModel):
     description: str
     apartment_unit: str | None = None
     building_name: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Payload for authenticated password change."""
+
+    current_password: str = Field(min_length=1, description="Mật khẩu hiện tại")
+    new_password: str = Field(min_length=6, max_length=128, description="Mật khẩu mới (tối thiểu 6 ký tự)")
+    confirm_password: str = Field(min_length=6, max_length=128, description="Xác nhận mật khẩu mới")

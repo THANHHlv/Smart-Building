@@ -31,15 +31,19 @@ from app.api.v1.tickets import router as tickets_router, admin_router as tickets
 
 # --- Admin Operations & RBAC ---
 from app.api.v1.admin import router as admin_router
+from app.api.v1.admin_residents import router as admin_residents_router
+from app.api.v1.profile import router as profile_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
-# Admin Operations & RBAC
+# Admin Operations, Residents & RBAC
 api_v1_router.include_router(admin_router)
+api_v1_router.include_router(admin_residents_router)
 
 # Authentication & Account management
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(users_router)
+api_v1_router.include_router(profile_router)
 
 # Resident-scoped portal
 api_v1_router.include_router(resident_router)

@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -52,8 +52,16 @@ class MaintenanceTicket(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(String(50), default="general", nullable=False)
-    urgency: Mapped[str] = mapped_column(String(50), default="medium", nullable=False)
-    status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
+    urgency: Mapped[TicketUrgency] = mapped_column(
+        Enum(TicketUrgency, name="maintenance_ticket_urgency", native_enum=False, values_callable=lambda x: [e.value for e in x]),
+        default=TicketUrgency.MEDIUM,
+        nullable=False,
+    )
+    status: Mapped[TicketStatus] = mapped_column(
+        Enum(TicketStatus, name="maintenance_ticket_status", native_enum=False, values_callable=lambda x: [e.value for e in x]),
+        default=TicketStatus.OPEN,
+        nullable=False,
+    )
     technician_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

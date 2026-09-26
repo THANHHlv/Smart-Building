@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Calendar,
   CheckCheck,
   ChevronRight,
   Flame,
   Info,
-  Loader2,
   Megaphone,
   Pin,
   Plus,
@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import type { Announcement, UserProfile } from '../types';
+import { createStaggerContainer, staggerItemVariants, singlePulseAnimation } from '../tokens/motionTokens';
+import { WarmSkeletonCard } from './ui/WarmSkeleton';
+import { WarmEmptyState } from './ui/WarmEmptyState';
 
 interface CommunityBulletinProps {
   isOpen?: boolean;
@@ -188,7 +191,7 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
                 )}
               </div>
               <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#6F6861' }}>
-                Tin tức, thông báo bảo trì & sự kiện chính thức từ Ban Quản Lý The Oasis
+                Tin tức, thông báo bảo trì & sự kiện chính thức từ Ban Quản Lý ThanhLe Smart Tower
               </p>
             </div>
           </div>
@@ -288,24 +291,22 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
         {/* Scrollable Feed Container */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '50px', color: '#6F6861' }}>
-              <Loader2 size={24} className="animate-spin" style={{ margin: '0 auto 8px' }} />
-              <div>Đang cập nhật bảng tin...</div>
-            </div>
+            <WarmSkeletonCard count={3} />
           ) : announcements.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#8E867E' }}>
-              <Megaphone size={36} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              <div style={{ fontWeight: 600, fontSize: '0.96rem', color: '#2D2825' }}>Không có bài thông báo nào trong mục này</div>
-              <div style={{ fontSize: '0.82rem', marginTop: '4px' }}>Các thông báo mới hoặc thông báo khẩn sẽ được hiển thị tại đây.</div>
-            </div>
+            <WarmEmptyState
+              title="Không có bài thông báo nào"
+              description="Các thông báo mới từ Ban quản lý toà nhà sẽ được hiển thị tại đây."
+            />
           ) : (
             <>
               {/* 1. URGENT PINNED BANNER (Terracotta Highlight - Biophilic Oasis Style, not harsh red) */}
               {urgentPinned.length > 0 && selectedCategory === 'all' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {urgentPinned.map((urgentItem) => (
-                    <article
+                    <motion.article
                       key={urgentItem.id}
+                      animate={singlePulseAnimation}
+                      whileHover={{ y: -2, transition: { duration: 0.15 } }}
                       onClick={() => handleOpenDetail(urgentItem)}
                       style={{
                         background: 'linear-gradient(135deg, rgba(217, 107, 67, 0.12), rgba(217, 107, 67, 0.05))',
@@ -314,17 +315,8 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
                         padding: '16px 20px',
                         cursor: 'pointer',
                         boxShadow: '0 4px 16px rgba(217, 107, 67, 0.1)',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
                         position: 'relative',
                         overflow: 'hidden',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 6px 20px rgba(217, 107, 67, 0.18)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 4px 16px rgba(217, 107, 67, 0.1)';
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -359,28 +351,44 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
                       <h3 style={{ margin: '0 0 6px', fontSize: '1.05rem', fontWeight: 700, color: '#D96B43', lineHeight: 1.4 }}>
                         {urgentItem.title}
                       </h3>
-                      <p style={{ margin: 0, fontSize: '0.84rem', color: '#2D2825', lineHeight: 1.5 }}>
-                        {urgentItem.content.length > 180 ? `${urgentItem.content.substring(0, 180)}...` : urgentItem.content}
+                      <p
+                        style={{
+                          margin: '0 0 10px',
+                          fontSize: '0.84rem',
+                          color: '#2D2825',
+                          lineHeight: 1.5,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {urgentItem.content}
                       </p>
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                        <span style={{ fontSize: '0.76rem', color: '#8E867E' }}>
-                          Người đăng: <strong>{urgentItem.publisher_name || 'Ban Quản Lý'}</strong>
-                        </span>
-                        <span style={{ fontSize: '0.78rem', color: '#D96B43', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#8E867E' }}>
+                        <span>Đăng bởi: <strong>{urgentItem.publisher_name || 'Ban Quản Lý'}</strong></span>
+                        <span style={{ color: '#D96B43', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px' }}>
                           Xem chi tiết <ChevronRight size={14} />
                         </span>
                       </div>
-                    </article>
+                    </motion.article>
                   ))}
                 </div>
               )}
 
-              {/* 2. REGULAR FEED (Social/News Feed Cards) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 2. REGULAR FEED (Social/News Feed Cards) with Stagger */}
+              <motion.div
+                variants={createStaggerContainer(0.04)}
+                initial="hidden"
+                animate="visible"
+                style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+              >
                 {(selectedCategory === 'all' ? regularFeed : announcements).map((item) => (
-                  <article
+                  <motion.article
                     key={item.id}
+                    variants={staggerItemVariants}
+                    whileHover={{ y: -2, borderColor: '#D96B43', transition: { duration: 0.15 } }}
                     onClick={() => handleOpenDetail(item)}
                     style={{
                       background: '#FFFFFF',
@@ -389,19 +397,8 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
                       padding: '18px 20px',
                       cursor: 'pointer',
                       boxShadow: '0 2px 8px rgba(45, 40, 37, 0.04)',
-                      transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
                       display: 'flex',
                       gap: '16px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = '#D96B43';
-                      e.currentTarget.style.boxShadow = '0 6px 18px rgba(45, 40, 37, 0.08)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.borderColor = '#EFE9DF';
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(45, 40, 37, 0.04)';
                     }}
                   >
                     {/* Optional Thumbnail Image */}
@@ -479,9 +476,9 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
                         </span>
                       </div>
                     </div>
-                  </article>
+                  </motion.article>
                 ))}
-              </div>
+              </motion.div>
             </>
           )}
         </div>
@@ -499,7 +496,7 @@ export const CommunityBulletin: React.FC<CommunityBulletinProps> = ({
             color: '#6F6861',
           }}
         >
-          <span>The Oasis • Hệ thống bản tin tự động đồng bộ theo thời gian thực</span>
+          <span>ThanhLe Smart Tower • Hệ thống bản tin tự động đồng bộ theo thời gian thực</span>
           <button
             type="button"
             onClick={onClose}

@@ -98,7 +98,7 @@ export const KpiGrid: React.FC<KpiGridProps> = ({ overview, energy, water, isLoa
               }}
             >
               <Sparkles size={13} />
-              <span>{overview?.total_buildings ?? 1} Tòa nhà The Oasis</span>
+              <span>{overview?.total_buildings ?? 1} Tòa tháp ThanhLe Smart Tower</span>
             </div>
           </div>
           <div

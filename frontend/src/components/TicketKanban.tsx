@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Kanban,
   Zap,
@@ -18,6 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { MOTION_SPRINGS } from '../tokens/motionTokens';
 import type {
   Ticket,
   TicketDetail,
@@ -150,8 +152,6 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen = true, onClo
       loadData();
     }
   }, [isOpen, asPage, filterCategory, filterPriority, filterOverdueOnly]);
-
-  if (!isOpen && !asPage) return null;
 
   // Load SLA report
   const loadSlaReport = async () => {
@@ -695,11 +695,23 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen = true, onClo
                         const CatIcon = cat.icon;
 
                         return (
-                          <div
+                          <motion.div
                             key={ticket.id}
+                            layout
                             draggable
-                            onDragStart={(e) => handleDragStart(e, ticket.id)}
+                            onDragStartCapture={(e) => handleDragStart(e, ticket.id)}
                             onClick={() => openTicketDetail(ticket.id)}
+                            whileHover={{
+                              y: -3,
+                              boxShadow: '0 8px 22px rgba(45, 40, 37, 0.08)',
+                              transition: { duration: 0.16 },
+                            }}
+                            whileTap={{
+                              scale: 1.02,
+                              rotate: -0.6,
+                              boxShadow: '0 14px 28px rgba(217, 107, 67, 0.22)',
+                            }}
+                            transition={MOTION_SPRINGS.gentle}
                             style={{
                               padding: '12px 14px',
                               background: '#FFFFFF',
@@ -712,7 +724,6 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen = true, onClo
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '8px',
-                              transition: 'all 0.15s ease',
                             }}
                           >
                             {/* Badges Row */}
@@ -851,7 +862,7 @@ export const TicketKanban: React.FC<TicketKanbanProps> = ({ isOpen = true, onClo
                                 </button>
                               )}
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>

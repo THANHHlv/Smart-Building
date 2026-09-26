@@ -11,6 +11,8 @@ import type {
   InvoiceListItem,
   MaintenanceTicket,
   PayInvoiceResponse,
+  PaymentOptions,
+  PendingManualConfirmation,
   PaymentMethod,
   ResidentDashboardResponse,
   ServiceCatalogItem,
@@ -49,6 +51,13 @@ import type {
   BulkJob,
   BillingRate,
   ReportExport,
+  UserProfileDetails,
+  ResidentApartment,
+  AdminResidentItem,
+  TechnicianProfileItem,
+  UpdateProfilePayload,
+  AdminCreateResidentPayload,
+  AdminUpdateResidentPayload,
 } from '../types';
 
 
@@ -151,6 +160,78 @@ export const api = {
 
   getDemoAccounts: (): Promise<DemoAccount[]> =>
     request<DemoAccount[]>('/auth/demo-accounts'),
+
+  changePassword: (payload: {
+    current_password: string;
+    new_password: string;
+    confirm_password: string;
+  }): Promise<{ message: string }> =>
+    request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // --- Personal Profile & Avatar ---
+  getMyProfile: (): Promise<UserProfileDetails> => request<UserProfileDetails>('/me/profile'),
+  updateMyProfile: (payload: UpdateProfilePayload): Promise<UserProfileDetails> =>
+    request<UserProfileDetails>('/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  uploadMyAvatar: (file: File): Promise<{ avatar_url: string; message: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{ avatar_url: string; message: string }>('/me/profile/avatar', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  getMyApartments: (): Promise<ResidentApartment[]> => request<ResidentApartment[]>('/me/apartments'),
+  setPrimaryContact: (apartmentId: string): Promise<{ message: string }> =>
+    request<{ message: string }>(`/me/apartments/${apartmentId}/set-primary-contact`, {
+      method: 'POST',
+    }),
+
+  // --- Admin Resident Management ---
+  getAdminResidents: (params?: {
+    building_id?: string;
+    floor_id?: string;
+    apartment_id?: string;
+    status?: string;
+    search?: string;
+  }): Promise<AdminResidentItem[]> => {
+    const qs = new URLSearchParams();
+    if (params?.building_id) qs.append('building_id', params.building_id);
+    if (params?.floor_id) qs.append('floor_id', params.floor_id);
+    if (params?.apartment_id) qs.append('apartment_id', params.apartment_id);
+    if (params?.status) qs.append('status', params.status);
+    if (params?.search) qs.append('search', params.search);
+    const query = qs.toString() ? `?${qs.toString()}` : '';
+    return request<AdminResidentItem[]>(`/admin/residents${query}`);
+  },
+  createAdminResident: (payload: AdminCreateResidentPayload): Promise<AdminResidentItem> =>
+    request<AdminResidentItem>('/admin/residents', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateAdminResident: (id: string, payload: AdminUpdateResidentPayload): Promise<AdminResidentItem> =>
+    request<AdminResidentItem>(`/admin/residents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  deleteAdminResident: (id: string): Promise<{ message: string }> =>
+    request<{ message: string }>(`/admin/residents/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // --- Admin Technicians ---
+  getAdminTechnicians: (): Promise<TechnicianProfileItem[]> =>
+    request<TechnicianProfileItem[]>('/admin/technicians'),
+  updateAdminTechnician: (id: string, payload: Partial<TechnicianProfileItem>): Promise<TechnicianProfileItem> =>
+    request<TechnicianProfileItem>(`/admin/technicians/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 
   // --- Resident Scoped Dashboard ---
   getResidentDashboard: (apartmentId?: string): Promise<ResidentDashboardResponse> => {
@@ -275,6 +356,9 @@ export const api = {
   getInvoiceDetail: (id: string): Promise<InvoiceDetail> =>
     request<InvoiceDetail>(`/invoices/${id}`),
 
+  getPaymentOptions: (): Promise<PaymentOptions> =>
+    request<PaymentOptions>('/invoices/payment-options'),
+
   payInvoice: (id: string, idempotencyKey: string, returnUrl?: string): Promise<PayInvoiceResponse> =>
     request<PayInvoiceResponse>(`/invoices/${id}/pay`, {
       method: 'POST',
@@ -303,6 +387,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  getPendingManualConfirmations: (): Promise<PendingManualConfirmation[]> =>
+    request<PendingManualConfirmation[]>('/admin/manual-confirmations'),
 
   updateReminderSettings: (payload: ReminderSettingsRequest): Promise<{ message: string; settings: ReminderSettingsRequest }> =>
     request<{ message: string; settings: ReminderSettingsRequest }>('/me/reminders/settings', {
@@ -521,6 +608,18 @@ export const api = {
     return request<ServiceRequest[]>('/me/service-requests');
   },
 
+  getAdminServiceRequests: (): Promise<ServiceRequest[]> =>
+    request<ServiceRequest[]>('/admin/service-requests'),
+
+  getAdminAmenityBookings: (): Promise<AmenityBooking[]> =>
+    request<AmenityBooking[]>('/admin/amenity-bookings'),
+
+  reviewAmenityBooking: (bookingId: string, decision: 'confirmed' | 'cancelled'): Promise<AmenityBooking> =>
+    request<AmenityBooking>(`/admin/amenity-bookings/${bookingId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ decision }),
+    }),
+
   createServiceRequest: (payload: {
     request_type: string;
     title: string;
@@ -674,5 +773,3 @@ export const api = {
     });
   },
 };
-
-

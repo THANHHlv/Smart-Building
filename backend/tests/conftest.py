@@ -5,36 +5,41 @@ Uses PostgreSQL (via Docker Compose) for accurate test behavior.
 """
 
 from collections.abc import AsyncGenerator
+import os
+from uuid import uuid4
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from app.core.database import get_db
-from app.main import app
-from app.models.base import Base
-
-
-import os
-from sqlalchemy.engine import URL
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
+from app.core.database import get_db
+from app.core.security import create_access_token, hash_password
+from app.main import app
+from app.models.base import Base
+from app.models.user import User
 
 settings = get_settings()
 
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    URL.create(
+TEST_DATABASE_URL = (
+    os.getenv("TEST_DATABASE_URL")
+    or settings.test_database_url
+    or URL.create(
         drivername="postgresql+asyncpg",
         username=settings.postgres_user,
         password=settings.postgres_password,
-        host=settings.postgres_host,
+        host="localhost" if settings.postgres_auth_mode == "iam" else settings.postgres_host,
         port=settings.postgres_port,
         database="smart_building_test",
-    ).render_as_string(hide_password=False),
+    ).render_as_string(hide_password=False)
 )
 
-from sqlalchemy.pool import NullPool
+if settings.postgres_auth_mode == "iam" and not settings.test_database_url and not os.getenv("TEST_DATABASE_URL"):
+    raise RuntimeError("Set TEST_DATABASE_URL to an isolated local test database before running tests")
+if settings.postgres_auth_mode == "iam" and make_url(TEST_DATABASE_URL).host == settings.postgres_host:
+    raise RuntimeError("Tests must not use the configured RDS host")
 
 test_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool, echo=False)
 testing_session_factory = async_sessionmaker(
@@ -50,11 +55,6 @@ async def setup_database():
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-
-
-from uuid import uuid4
-from app.core.security import create_access_token, hash_password
-from app.models.user import User
 
 
 @pytest_asyncio.fixture
@@ -117,4 +117,3 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     app.dependency_overrides.clear()
-

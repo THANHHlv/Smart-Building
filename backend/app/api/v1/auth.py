@@ -14,7 +14,14 @@ from app.models.apartment import Apartment
 from app.models.building import Building
 from app.models.floor import Floor
 from app.models.user import User
-from app.schemas.auth import DemoAccount, LoginRequest, RegisterRequest, TokenResponse, UserProfile
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    DemoAccount,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserProfile,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -61,6 +68,7 @@ async def login(
         else None
     )
 
+    avatar = user.profile.avatar_url if user.profile else None
     profile = UserProfile(
         id=user.id,
         email=user.email,
@@ -69,6 +77,8 @@ async def login(
         apartment_id=user.apartment_id,
         apartment_unit=apt_unit,
         building_name=bld_name,
+        avatar_url=avatar,
+        phone=user.phone,
         is_active=user.is_active,
     )
 
@@ -91,7 +101,7 @@ async def register(
             detail="Địa chỉ email này đã được đăng ký trong hệ thống",
         )
 
-    # Create the user with default resident role
+    # Create the user with default resident role (User.__init__ auto-creates attached Profile)
     new_user = User(
         email=email_normalized,
         hashed_password=hash_password(payload.password),
@@ -116,6 +126,8 @@ async def register(
         apartment_id=None,
         apartment_unit=None,
         building_name=None,
+        avatar_url=None,
+        phone=None,
         is_active=True,
     )
 
@@ -136,6 +148,7 @@ async def get_me(
         and current_user.apartment.floor.building
         else None
     )
+    avatar = current_user.profile.avatar_url if current_user.profile else None
 
     return UserProfile(
         id=current_user.id,
@@ -145,6 +158,8 @@ async def get_me(
         apartment_id=current_user.apartment_id,
         apartment_unit=apt_unit,
         building_name=bld_name,
+        avatar_url=avatar,
+        phone=current_user.phone,
         is_active=current_user.is_active,
     )
 
@@ -195,3 +210,35 @@ async def get_demo_accounts(
         )
 
     return accounts
+
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Change the password for the currently logged-in user."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu hiện tại không chính xác",
+        )
+
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới và xác nhận mật khẩu không trùng khớp",
+        )
+
+    if payload.new_password == payload.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mật khẩu mới không được trùng với mật khẩu hiện tại",
+        )
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    await db.commit()
+
+    return {"message": "Đổi mật khẩu thành công"}
+

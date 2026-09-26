@@ -19,7 +19,7 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks (Payment)"])
 logger = get_logger(__name__)
 
 
-@router.post("/payment/{provider}")
+@router.api_route("/payment/{provider}", methods=["GET", "POST"])
 async def handle_payment_webhook(
     provider: str,
     request: Request,
@@ -35,6 +35,8 @@ async def handle_payment_webhook(
 
     Supported providers: vnpay, momo, zalopay, stripe
     """
+    if provider != "vnpay":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unsupported payment provider")
     # Get client IP for audit
     client_ip = request.client.host if request.client else None
 
@@ -58,6 +60,8 @@ async def handle_payment_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty webhook payload",
         )
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid webhook payload")
 
     logger.info(
         "webhook_received",
@@ -75,20 +79,23 @@ async def handle_payment_webhook(
             ip_address=client_ip,
         )
     except ValueError as exc:
-        # Signature verification failed
         logger.warning(
             "webhook_rejected",
             provider=provider,
             reason=str(exc),
             ip_address=client_ip,
         )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid webhook signature",
-        )
+        return {"RspCode": "97", "Message": "Invalid payment callback"}
 
     # VNPay expects a specific response format
     if provider == "vnpay":
-        return {"RspCode": "00", "Message": "Confirm Success"}
+        response_codes = {
+            "processed": ("00", "Confirm Success"),
+            "already_processed": ("02", "Order already confirmed"),
+            "transaction_not_found": ("01", "Order not found"),
+            "amount_mismatch": ("04", "Invalid amount"),
+        }
+        code, message = response_codes.get(result["status"], ("99", "Processing error"))
+        return {"RspCode": code, "Message": message}
 
     return {"status": "ok", "result": result}

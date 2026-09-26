@@ -9,6 +9,9 @@ Covers:
 """
 
 from datetime import date, datetime, timezone
+import hashlib
+import hmac
+import urllib.parse
 from uuid import uuid4
 
 import pytest
@@ -24,13 +27,16 @@ from app.models.invoice import Invoice, InvoiceStatus
 from app.models.ticket import Ticket, TicketCategory, TicketPriority, TicketSource, TicketStatus
 from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import User
-from app.services.payment_gateway import get_payment_gateway
+from app.core.config import get_settings
 
 
 @pytest.mark.asyncio
-async def test_webhook_amount_tampering_rejected(client: AsyncClient, unauthenticated_client: AsyncClient):
+async def test_webhook_amount_tampering_rejected(client: AsyncClient, unauthenticated_client: AsyncClient, monkeypatch):
     """Verify that a payment webhook with altered amount is rejected and does not mark invoice as paid."""
-    gateway = get_payment_gateway()
+    settings = get_settings()
+    monkeypatch.setattr(settings, "payment_gateway_mock", False)
+    monkeypatch.setattr(settings, "vnpay_tmn_code", "TESTMER1")
+    monkeypatch.setattr(settings, "vnpay_hash_secret", "test-only-signing-secret")
 
     # 1. Create building, floor, apartment, billing_cycle, invoice, transaction via db
     from tests.conftest import testing_session_factory
@@ -79,11 +85,17 @@ async def test_webhook_amount_tampering_rejected(client: AsyncClient, unauthenti
         "vnp_ResponseCode": "00",
         "vnp_TransactionNo": "VNP123456",
         "vnp_OrderInfo": "Payment",
-        "vnp_SecureHash": "mock_sig",
+        "vnp_TmnCode": settings.vnpay_tmn_code,
+        "vnp_TransactionStatus": "00",
     }
+    signed_query = urllib.parse.urlencode(sorted(payload_tampered.items()))
+    payload_tampered["vnp_SecureHash"] = hmac.new(
+        settings.vnpay_hash_secret.encode(), signed_query.encode(), hashlib.sha512
+    ).hexdigest()
 
     resp = await unauthenticated_client.post("/api/v1/webhooks/payment/vnpay", json=payload_tampered)
     assert resp.status_code == 200
+    assert resp.json()["RspCode"] == "04"
 
     # 3. Check that transaction failed and invoice is NOT paid
     async with testing_session_factory() as session:

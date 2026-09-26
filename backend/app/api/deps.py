@@ -52,7 +52,8 @@ async def get_current_user(
         .options(
             selectinload(User.apartment)
             .selectinload(Apartment.floor)
-            .selectinload(Floor.building)
+            .selectinload(Floor.building),
+            selectinload(User.profile),
         )
         .where(User.id == user_id, User.is_active.is_(True))
     )

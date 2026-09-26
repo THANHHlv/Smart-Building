@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import fetch_user_permissions, get_current_user, require_resident
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.models.user import User
 from app.schemas.common import PaginatedResponse
@@ -17,11 +18,27 @@ from app.schemas.payment import (
     InvoiceListItem,
     PayInvoiceRequest,
     PayInvoiceResponse,
+    PaymentOptionsResponse,
 )
 from app.services.payment_service import ConflictError, PaymentService
 
 router = APIRouter(prefix="/invoices", tags=["Invoices & Billing"])
 logger = get_logger(__name__)
+
+
+@router.get("/payment-options", response_model=PaymentOptionsResponse)
+async def get_payment_options(
+    _current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Expose available resident payment methods without disclosing gateway secrets."""
+    settings = get_settings()
+    bank_configured = all((settings.billing_bank_name, settings.billing_bank_account, settings.billing_bank_account_name))
+    return PaymentOptionsResponse(
+        online_enabled=(not settings.payment_gateway_mock and bool(settings.vnpay_tmn_code and settings.vnpay_hash_secret)),
+        bank_name=settings.billing_bank_name if bank_configured else None,
+        bank_account=settings.billing_bank_account if bank_configured else None,
+        bank_account_name=settings.billing_bank_account_name if bank_configured else None,
+    )
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -106,7 +123,7 @@ async def pay_invoice(
     body: PayInvoiceRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=255)],
 ):
     """Initiate payment for an invoice.
 

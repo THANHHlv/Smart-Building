@@ -177,13 +177,16 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* 1. Apartment Welcome Header */}
+      {/* Apartment Welcome Banner (ThanhLe Theme - High Contrast & Warm Biophilic) */}
       <section
         aria-labelledby="apartment-welcome-title"
         className="glass-panel"
         style={{
-          padding: '24px',
-          border: '1px solid var(--border-cyan)',
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(17, 24, 39, 0.95))',
+          padding: '22px 26px',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid rgba(217, 107, 67, 0.25)',
+          background: 'linear-gradient(135deg, #FFFFFF 0%, #FAF6F0 100%)',
+          boxShadow: '0 4px 20px rgba(217, 107, 67, 0.06)',
         }}
       >
         <div
@@ -201,35 +204,48 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
                 width: '48px',
                 height: '48px',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(6, 182, 212, 0.18)',
-                border: '1px solid var(--border-cyan)',
+                background: 'linear-gradient(135deg, #FDF7F2, #F8EDE4)',
+                border: '1px solid rgba(217, 107, 67, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#06b6d4',
-                boxShadow: 'var(--shadow-glow-cyan)',
+                color: '#D96B43',
+                boxShadow: '0 4px 12px rgba(217, 107, 67, 0.12)',
               }}
               aria-hidden="true"
             >
-              <Home size={26} />
+              <Home size={26} strokeWidth={2.2} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h2
                   id="apartment-welcome-title"
                   style={{
-                    fontSize: '1.2rem',
+                    fontSize: '1.25rem',
                     fontWeight: 800,
-                    color: 'var(--text-primary)',
+                    color: '#2D2825',
                     letterSpacing: '-0.01em',
+                    margin: 0,
                   }}
                 >
                   Căn Hộ {apartment.unit_number} • {apartment.building_name}
                 </h2>
-                <span className="badge badge-healthy">Cư Dân Chính Thức</span>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    background: 'rgba(74, 124, 89, 0.12)',
+                    color: '#2E603C',
+                    border: '1px solid rgba(74, 124, 89, 0.3)',
+                  }}
+                >
+                  Cư Dân Chính Thức
+                </span>
               </div>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Chủ hộ: <strong style={{ color: 'var(--text-primary)' }}>{apartment.resident_name}</strong> • Tầng {apartment.floor_number} • Diện tích: {apartment.area_sqm} m² ({apartment.num_rooms} phòng)
+              <p style={{ fontSize: '0.82rem', color: '#6F6861', marginTop: '4px', margin: '4px 0 0 0' }}>
+                Chủ hộ: <strong style={{ color: '#2D2825' }}>{apartment.resident_name}</strong> • Tầng {apartment.floor_number} • Diện tích: {apartment.area_sqm} m² ({apartment.num_rooms} phòng)
               </p>
             </div>
           </div>
@@ -239,27 +255,30 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
               style={{
                 fontSize: '0.75rem',
                 fontFamily: 'var(--font-mono)',
-                color: 'var(--text-muted)',
-                background: 'var(--bg-interactive)',
+                color: '#6F6861',
+                background: '#F3EEE5',
                 padding: '6px 12px',
                 borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-subtle)',
+                border: '1px solid #E5DEC9',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
             >
-              Mã bảo mật căn hộ: <span style={{ color: '#38bdf8' }}>{apartment.id.slice(0, 8)}</span>
+              Mã bảo mật căn hộ: <strong style={{ color: '#D96B43', letterSpacing: '0.04em' }}>{apartment.id.slice(0, 8)}</strong>
             </span>
 
             {onOpenServiceHub && (
               <button
                 onClick={onOpenServiceHub}
-                className="btn-secondary"
+                className="interactive-btn"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: 'rgba(74, 124, 89, 0.15)',
+                  background: 'rgba(74, 124, 89, 0.12)',
                   border: '1px solid rgba(74, 124, 89, 0.35)',
-                  color: '#4A7C59',
+                  color: '#2E603C',
                   padding: '7px 14px',
                   borderRadius: 'var(--radius-sm)',
                   fontWeight: 600,
@@ -276,14 +295,14 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
             {onOpenMaintenance && (
               <button
                 onClick={onOpenMaintenance}
-                className="btn-secondary"
+                className="interactive-btn"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  background: 'rgba(249, 115, 22, 0.15)',
-                  border: '1px solid rgba(249, 115, 22, 0.35)',
-                  color: '#f97316',
+                  background: 'rgba(217, 107, 67, 0.12)',
+                  border: '1px solid rgba(217, 107, 67, 0.35)',
+                  color: '#B84E29',
                   padding: '7px 14px',
                   borderRadius: 'var(--radius-sm)',
                   fontWeight: 600,
@@ -869,8 +888,8 @@ export const ResidentDashboard: React.FC<ResidentDashboardProps> = ({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 'var(--radius-sm)',
-                    background: a.severity === 'critical' ? 'rgba(244, 63, 94, 0.1)' : 'rgba(15, 23, 42, 0.6)',
-                    border: a.severity === 'critical' ? '1px solid var(--border-rose)' : '1px solid var(--border-subtle)',
+                    background: a.severity === 'critical' ? 'rgba(200, 82, 82, 0.08)' : '#FAF7F2',
+                    border: a.severity === 'critical' ? '1px solid rgba(200, 82, 82, 0.3)' : '1px solid #EFE9DF',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',

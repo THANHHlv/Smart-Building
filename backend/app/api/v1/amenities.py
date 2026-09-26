@@ -1,13 +1,14 @@
 """Community Amenities & Slot Booking API endpoints."""
 
 import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.amenity import (
@@ -19,6 +20,31 @@ from app.schemas.amenity import (
 from app.services.service_request_service import ServiceRequestService
 
 router = APIRouter(tags=["Community Amenities & Bookings"])
+
+
+class BookingReview(BaseModel):
+    decision: Literal["confirmed", "cancelled"]
+
+
+@router.get("/admin/amenity-bookings", response_model=list[AmenityBookingResponse])
+async def list_admin_amenity_bookings(
+    _admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Management queue for amenity bookings, including pending approvals."""
+    return await ServiceRequestService(db).list_admin_amenity_bookings(limit=limit)
+
+
+@router.patch("/admin/amenity-bookings/{booking_id}", response_model=AmenityBookingResponse)
+async def review_amenity_booking(
+    booking_id: UUID,
+    payload: BookingReview,
+    _admin: Annotated[User, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Approve or decline a pending amenity booking."""
+    return await ServiceRequestService(db).review_amenity_booking(booking_id, payload.decision)
 
 
 @router.get(

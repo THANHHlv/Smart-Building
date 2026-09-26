@@ -5,17 +5,23 @@ and the audit log. Never accesses sensor_readings or IoT tables directly.
 """
 
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.core.logging import get_logger
+from app.core.config import get_settings
 from app.models.invoice import Invoice, InvoiceStatus
 from app.models.payment_audit_log import PaymentAuditLog
+from app.models.manual_confirmation import ManualConfirmation, ManualConfirmationStatus
 from app.models.payment_method import PaymentProvider
 from app.models.transaction import Transaction, TransactionStatus
 from app.repositories.invoice_repo import InvoiceRepository
 from app.repositories.transaction_repo import TransactionRepository
+from app.schemas.payment import PendingManualConfirmationResponse
 from app.services.payment_gateway import get_payment_gateway
 
 logger = get_logger(__name__)
@@ -53,6 +59,30 @@ class PaymentService:
         """Get full invoice detail with items and transactions."""
         return await self.invoice_repo.get_detail(invoice_id)
 
+    async def list_pending_manual_confirmations(self) -> list[PendingManualConfirmationResponse]:
+        stmt = (
+            select(ManualConfirmation)
+            .options(selectinload(ManualConfirmation.invoice))
+            .where(ManualConfirmation.status == ManualConfirmationStatus.PENDING)
+            .order_by(ManualConfirmation.submitted_at.asc())
+            .limit(100)
+        )
+        confirmations = (await self.session.execute(stmt)).scalars().all()
+        return [
+            PendingManualConfirmationResponse(
+                id=confirmation.id,
+                invoice_id=confirmation.invoice_id,
+                invoice_number=confirmation.invoice.invoice_number,
+                apartment_id=confirmation.invoice.apartment_id,
+                amount=float(confirmation.invoice.total_amount),
+                method=confirmation.method.value,
+                note=confirmation.note,
+                submitted_at=confirmation.submitted_at,
+            )
+            for confirmation in confirmations
+            if confirmation.invoice and confirmation.invoice.status in (InvoiceStatus.PENDING, InvoiceStatus.OVERDUE)
+        ]
+
     async def initiate_payment(
         self,
         invoice_id: UUID,
@@ -82,10 +112,22 @@ class PaymentService:
             raise ValueError(
                 f"Invoice cannot be paid — current status: {invoice.status.value}"
             )
+        if invoice.total_amount <= 0:
+            raise ValueError("Invoice amount must be positive")
+
+        settings = get_settings()
+        if settings.payment_gateway_mock or not (settings.vnpay_tmn_code and settings.vnpay_hash_secret):
+            raise ValueError("Thanh toán trực tuyến chưa được cấu hình")
+        configured_url = settings.vnpay_return_url
+        if return_url and urlparse(return_url).netloc != urlparse(configured_url).netloc:
+            raise ValueError("Địa chỉ quay về không hợp lệ")
+        return_url = configured_url
 
         # 2. Check idempotency key (prevent double-charge)
         existing_txn = await self.txn_repo.get_by_idempotency_key(idempotency_key)
         if existing_txn:
+            if existing_txn.invoice_id != invoice_id:
+                raise ConflictError("Idempotency key already belongs to another invoice")
             # Return the existing transaction result instead of creating new
             logger.info(
                 "payment_idempotency_hit",
@@ -97,8 +139,8 @@ class PaymentService:
                 payment_url = await self.gateway.create_payment_url(
                     transaction_id=str(existing_txn.id),
                     amount=float(invoice.total_amount),
-                    description=f"Thanh toán hoá đơn {invoice.invoice_number}",
-                    return_url=return_url or "",
+                    description=f"Thanh toan hoa don {invoice.invoice_number}",
+                    return_url=return_url,
                     ip_address=ip_address,
                 )
                 return {
@@ -134,8 +176,8 @@ class PaymentService:
         payment_url = await self.gateway.create_payment_url(
             transaction_id=str(transaction.id),
             amount=float(invoice.total_amount),
-            description=f"Thanh toán hoá đơn {invoice.invoice_number}",
-            return_url=return_url or "",
+            description=f"Thanh toan hoa don {invoice.invoice_number}",
+            return_url=return_url,
             ip_address=ip_address,
         )
 
@@ -181,6 +223,8 @@ class PaymentService:
             raise ValueError("Invalid webhook signature")
 
         # 2. Parse the verified payload
+        if not get_settings().payment_gateway_mock and payload.get("vnp_TmnCode") != get_settings().vnpay_tmn_code:
+            raise ValueError("Invalid merchant code")
         result = gateway.parse_webhook_payload(payload)
 
         # 3. Find the transaction by reference

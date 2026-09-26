@@ -20,6 +20,13 @@ from app.core.database import async_session_factory, engine
 from app.core.security import hash_password
 from app.models.alert import Alert, AlertSeverity, AlertStatus
 from app.models.apartment import Apartment
+from app.models.profile import (
+    ApartmentResident,
+    Profile,
+    ResidentRelationship,
+    ResidentStatus,
+    TechnicianProfile,
+)
 from app.models.building import Building
 from app.models.device import Device, DeviceStatus
 from app.models.device_type import DeviceType
@@ -43,11 +50,22 @@ from app.models.service_request import ServiceRequest, Amenity, AmenityBooking
 from app.models.announcement import Announcement, AnnouncementRead
 
 
-async def seed_data():
+async def seed_data(force: bool = False):
     """Populate database with rich demo buildings, devices, readings, alerts, and work orders."""
     print(">>> Starting Demo Data Seeder...")
 
     async with async_session_factory() as session:
+        # Check if database already has data to keep it persistent
+        if not force and "--force" not in sys.argv and "-f" not in sys.argv:
+            existing_building = (await session.execute(select(Building.id).limit(1))).scalar_one_or_none()
+            if existing_building:
+                print("================================================================================")
+                print(">>> [DỮ LIỆU ĐÃ CỐ ĐỊNH] Database PostgreSQL đã có dữ liệu tòa nhà & người dùng.")
+                print("    Giữ nguyên toàn bộ dữ liệu hiện có (Bỏ qua bước xóa & nạp lại).")
+                print("    (Nếu muốn reset và nạp lại từ đầu, hãy chạy với cờ: --force hoặc -f)")
+                print("================================================================================")
+                return
+
         # 1. Clean existing records in reverse dependency order
         print("[1/10] Cleaning old demo data...")
         await session.execute(delete(UserRole))
@@ -68,6 +86,9 @@ async def seed_data():
         await session.execute(delete(Alert))
         await session.execute(delete(Device))
         await session.execute(delete(DeviceType))
+        await session.execute(delete(ApartmentResident))
+        await session.execute(delete(TechnicianProfile))
+        await session.execute(delete(Profile))
         await session.execute(delete(User))
         await session.execute(delete(Apartment))
         await session.execute(delete(Floor))
@@ -121,24 +142,14 @@ async def seed_data():
         print("[3/6] Creating Buildings, Floors, and Apartments...")
         buildings_data = [
             {
-                "name": "Skyline Tower",
-                "address": "88 Innovation Blvd, District 1",
-                "description": "High-tech commercial & residential smart tower",
+                "name": "ThanhLe Smart Tower",
+                "address": "08 Đại Lộ Sinh Thái ThanhLe, Phường An Khánh, TP. Thủ Đức",
+                "description": "Tòa tháp căn hộ sinh thái và văn phòng thông minh cao cấp ThanhLe Smart Tower",
                 "total_floors": 3,
                 "floors": [
                     {"floor_number": 1, "units": ["101", "102"]},
                     {"floor_number": 2, "units": ["201", "202"]},
                     {"floor_number": 3, "units": ["301", "302"]},
-                ],
-            },
-            {
-                "name": "Green Oasis",
-                "address": "12 Eco Valley Road, District 2",
-                "description": "Sustainable low-energy smart community",
-                "total_floors": 2,
-                "floors": [
-                    {"floor_number": 1, "units": ["101", "102"]},
-                    {"floor_number": 2, "units": ["201", "202"]},
                 ],
             },
         ]
@@ -193,7 +204,7 @@ async def seed_data():
         now = datetime.now(timezone.utc)
 
         for apt, b_name in apartments:
-            prefix = "sky" if "Skyline" in b_name else "oasis"
+            prefix = "oasis"
             # Electricity Meter
             elec_dev = Device(
                 id=uuid4(),
@@ -357,15 +368,15 @@ async def seed_data():
         await session.commit()
         # 7. Create Admin and Resident accounts
         print("[7/7] Seeding Admin & Resident User Accounts...")
-        apt_301 = next((a for a, b in apartments if a.unit_number == "301" and "Skyline" in b), apartments[0][0])
-        apt_101 = next((a for a, b in apartments if a.unit_number == "101" and "Skyline" in b), apartments[1][0])
-        apt_202 = next((a for a, b in apartments if a.unit_number == "202" and "Skyline" in b), apartments[2][0])
+        apt_301 = next((a for a, b in apartments if a.unit_number == "301"), apartments[0][0])
+        apt_101 = next((a for a, b in apartments if a.unit_number == "101"), apartments[1][0])
+        apt_202 = next((a for a, b in apartments if a.unit_number == "202"), apartments[2][0])
 
         # Define specific named user accounts
         admin_user = User(
             id=uuid4(),
             email="admin@smartbuilding.io",
-            hashed_password=hash_password("admin123"),
+            hashed_password=hash_password("123456"),
             full_name="Nguyễn Quản Trị (Super Admin)",
             role="admin",
             apartment_id=None,
@@ -375,8 +386,8 @@ async def seed_data():
         bql_user = User(
             id=uuid4(),
             email="bql.oasis@smartbuilding.io",
-            hashed_password=hash_password("bql123"),
-            full_name="Hoàng Văn Nam (Trưởng BQL The Oasis)",
+            hashed_password=hash_password("123456"),
+            full_name="Hoàng Văn Nam (Trưởng BQL ThanhLe Smart Tower)",
             role="admin",
             apartment_id=None,
             is_superuser=False,
@@ -385,7 +396,7 @@ async def seed_data():
         accountant_user = User(
             id=uuid4(),
             email="accountant@smartbuilding.io",
-            hashed_password=hash_password("accountant123"),
+            hashed_password=hash_password("123456"),
             full_name="Nguyễn Thu Hà (Kế toán BQL)",
             role="admin",
             apartment_id=None,
@@ -395,7 +406,7 @@ async def seed_data():
         res_301 = User(
             id=uuid4(),
             email="resident.apt301@smartbuilding.io",
-            hashed_password=hash_password("resident123"),
+            hashed_password=hash_password("123456"),
             full_name="Nguyễn Văn An (Căn 301)",
             role="resident",
             apartment_id=apt_301.id,
@@ -405,7 +416,7 @@ async def seed_data():
         res_101 = User(
             id=uuid4(),
             email="resident.apt101@smartbuilding.io",
-            hashed_password=hash_password("resident123"),
+            hashed_password=hash_password("123456"),
             full_name="Trần Thị Mai (Căn 101)",
             role="resident",
             apartment_id=apt_101.id,
@@ -415,7 +426,7 @@ async def seed_data():
         res_202 = User(
             id=uuid4(),
             email="resident.apt202@smartbuilding.io",
-            hashed_password=hash_password("resident123"),
+            hashed_password=hash_password("123456"),
             full_name="Lê Hoàng Nam (Căn 202)",
             role="resident",
             apartment_id=apt_202.id,
@@ -425,7 +436,7 @@ async def seed_data():
         tech_elec_user = User(
             id=uuid4(),
             email="tech.electrical@smartbuilding.io",
-            hashed_password=hash_password("tech123"),
+            hashed_password=hash_password("123456"),
             full_name="Trần Kỹ Thuật (Điện & Chiếu sáng)",
             role="technician",
             apartment_id=None,
@@ -435,7 +446,7 @@ async def seed_data():
         tech_water_user = User(
             id=uuid4(),
             email="tech.plumbing@smartbuilding.io",
-            hashed_password=hash_password("tech123"),
+            hashed_password=hash_password("123456"),
             full_name="Lê Thợ Nước (Cấp thoát nước & PCCC)",
             role="technician",
             apartment_id=None,
@@ -445,7 +456,7 @@ async def seed_data():
         tech_hvac_user = User(
             id=uuid4(),
             email="tech.hvac@smartbuilding.io",
-            hashed_password=hash_password("tech123"),
+            hashed_password=hash_password("123456"),
             full_name="Phạm Cơ Điện (Thang máy & HVAC)",
             role="technician",
             apartment_id=None,
@@ -465,6 +476,35 @@ async def seed_data():
             tech_hvac_user,
         ]
         session.add_all(users)
+        
+        # Seed ApartmentResident records
+        apt_residents = [
+            ApartmentResident(
+                id=uuid4(),
+                apartment_id=res_301.apartment_id,
+                user_id=res_301.id,
+                relationship=ResidentRelationship.OWNER,
+                is_primary_contact=True,
+                status=ResidentStatus.ACTIVE,
+            ),
+            ApartmentResident(
+                id=uuid4(),
+                apartment_id=res_101.apartment_id,
+                user_id=res_101.id,
+                relationship=ResidentRelationship.OWNER,
+                is_primary_contact=True,
+                status=ResidentStatus.ACTIVE,
+            ),
+            ApartmentResident(
+                id=uuid4(),
+                apartment_id=res_202.apartment_id,
+                user_id=res_202.id,
+                relationship=ResidentRelationship.TENANT,
+                is_primary_contact=True,
+                status=ResidentStatus.ACTIVE,
+            ),
+        ]
+        session.add_all(apt_residents)
         await session.commit()
         print(f"   Created {len(users)} demo accounts (1 Super Admin, 1 Building Admin, 1 Accountant, 3 Residents, 3 Technicians).")
 
@@ -497,7 +537,31 @@ async def seed_data():
             is_active=True,
             phone_number="0903456789",
         )
+        tech_profiles = [
+            TechnicianProfile(
+                id=uuid4(),
+                user_id=tech_elec_user.id,
+                specialties=["electrical", "lighting", "fire_safety"],
+                certification_info="Chứng chỉ Kỹ thuật Tòa nhà BQL, An toàn Lao động & Vận hành Điện",
+                active_building_ids=[],
+            ),
+            TechnicianProfile(
+                id=uuid4(),
+                user_id=tech_water_user.id,
+                specialties=["water", "fire_safety", "plumbing"],
+                certification_info="Chứng chỉ Kỹ thuật Tòa nhà BQL, An toàn Lao động & Vận hành Điện",
+                active_building_ids=[],
+            ),
+            TechnicianProfile(
+                id=uuid4(),
+                user_id=tech_hvac_user.id,
+                specialties=["elevator", "hvac", "ventilation"],
+                certification_info="Chứng chỉ Kỹ thuật Tòa nhà BQL, An toàn Lao động & Vận hành Điện",
+                active_building_ids=[],
+            ),
+        ]
         session.add_all([tech_elec, tech_water, tech_hvac])
+        session.add_all(tech_profiles)
         await session.flush()
 
         # Create sample tickets across statuses
@@ -738,7 +802,7 @@ async def seed_data():
                 id=uuid4(),
                 building_id=building.id,
                 title="Đêm Hội Trăng Rằm — Tết Trung Thu 2026 Dành Cho Thiếu Nhi",
-                content="Chào đón mùa trăng rằm 2026, Ban Quản Lý The Oasis kết hợp cùng Hội Cư Dân tổ chức đêm hội rước đèn, phá cỗ và múa lân vào lúc 19:00 thứ Bảy tuần này tại Sảnh Cộng Đồng Tầng 1. Kính mời toàn thể gia đình và các bé tham dự!",
+                content="Chào đón mùa trăng rằm 2026, Ban Quản Lý ThanhLe Smart Tower kết hợp cùng Hội Cư Dân tổ chức đêm hội rước đèn, phá cỗ và múa lân vào lúc 19:00 thứ Bảy tuần này tại Sảnh Cộng Đồng Tầng 1. Kính mời toàn thể gia đình và các bé tham dự!",
                 category="event",
                 priority="standard",
                 published_by=bql_user.id,
@@ -839,4 +903,9 @@ async def seed_data():
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_data())
+    force = "--force" in sys.argv or "-f" in sys.argv
+    if "--compact" in sys.argv:
+        asyncio.run(seed_data(force=force))
+    else:
+        from scripts.seed_large_dataset import run_large_seed
+        asyncio.run(run_large_seed(force=force))

@@ -1,6 +1,9 @@
 # =============================================================================
 # Smart Building Cloud Platform - 1-Click Demo Launcher
 # =============================================================================
+param(
+    [switch]$ResetData
+)
 
 Write-Host "======================================================" -ForegroundColor Cyan
 Write-Host "  SMART BUILDING CLOUD PLATFORM - LIVE DEMO LAUNCHER  " -ForegroundColor Cyan
@@ -12,13 +15,28 @@ $FrontendPath = Join-Path $RootPath "frontend"
 
 # 1. Check PostgreSQL connection & seed data
 Write-Host ""
-Write-Host "[1/3] Priming demo data in PostgreSQL..." -ForegroundColor Yellow
+Write-Host "[1/3] Checking demo data in PostgreSQL..." -ForegroundColor Yellow
 $PythonExe = Join-Path $BackendPath ".venv\Scripts\python.exe"
-if (Test-Path $PythonExe) {
-    & $PythonExe (Join-Path $BackendPath "scripts\seed_demo_data.py")
+$SeedScript = Join-Path $BackendPath "scripts\seed_demo_data.py"
+
+$SeedArgs = @()
+$BackendEnv = Join-Path $BackendPath ".env"
+$UsesIam = (Test-Path $BackendEnv) -and [bool](Select-String -Path $BackendEnv -Pattern '^POSTGRES_AUTH_MODE=iam\s*$' -Quiet)
+if ($UsesIam -and $ResetData) {
+    throw "-ResetData is disabled while the backend is configured for RDS IAM authentication."
+}
+if ($ResetData) {
+    Write-Host ">>> Flag -ResetData detected: Wiping and re-seeding database..." -ForegroundColor Magenta
+    $SeedArgs += "--force"
+}
+
+if ($UsesIam) {
+    Write-Host "RDS IAM mode: using the migrated data without reseeding." -ForegroundColor Green
+} elseif (Test-Path $PythonExe) {
+    & $PythonExe $SeedScript $SeedArgs
 } else {
     Write-Host "Warning: Virtual environment not found at $PythonExe. Using global python." -ForegroundColor Red
-    python (Join-Path $BackendPath "scripts\seed_demo_data.py")
+    python $SeedScript $SeedArgs
 }
 
 # 2. Start Backend in new window

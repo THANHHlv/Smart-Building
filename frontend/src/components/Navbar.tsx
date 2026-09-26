@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import {
   Building2,
   CalendarCheck,
@@ -7,10 +8,13 @@ import {
   Newspaper,
   Receipt,
   Shield,
+  Sparkles,
+  User,
   Users,
   Wrench,
 } from 'lucide-react';
 import type { UserProfile } from '../types';
+import { MOTION_SPRINGS } from '../tokens/motionTokens';
 
 export type PageId =
   | 'overview'
@@ -21,7 +25,9 @@ export type PageId =
   | 'services'
   | 'bulletin'
   | 'rbac'
-  | 'maintenance';
+  | 'maintenance'
+  | 'motion'
+  | 'profile';
 
 interface NavItem {
   id: PageId;
@@ -72,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     },
     {
       id: 'tickets',
-      label: isAdmin ? 'Phiếu Việc (Kanban)' : 'Yêu Cầu Hỗ Trợ',
+      label: isAdmin ? 'Phiếu Việc' : 'Yêu Cầu Hỗ Trợ',
       icon: Kanban,
     },
     {
@@ -82,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     },
     {
       id: 'services',
-      label: 'Yêu Cầu & Tiện Ích',
+      label: isAdmin ? 'Yêu Cầu Cư Dân' : 'Yêu Cầu & Tiện Ích',
       icon: CalendarCheck,
     },
     {
@@ -96,12 +102,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       id: 'maintenance',
       label: 'Lịch Bảo Trì',
       icon: Wrench,
+      adminOnly: true,
     },
     {
       id: 'rbac',
-      label: 'Phân Quyền RBAC',
+      label: 'Phân Quyền',
       icon: Shield,
       adminOnly: true,
+    },
+    {
+      id: 'motion',
+      label: 'Motion System',
+      icon: Sparkles,
+    },
+    {
+      id: 'profile',
+      label: 'Hồ Sơ Của Tôi',
+      icon: User,
     },
   ];
 
@@ -147,13 +164,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           const hasBadge = !!item.badge && item.badge > 0;
 
           return (
-            <button
+            <motion.button
               key={item.id}
               role="tab"
               aria-selected={isActive}
               id={`nav-tab-${item.id}`}
               aria-controls={`page-panel-${item.id}`}
               onClick={() => onSelectPage(item.id)}
+              whileTap={{ scale: 0.96 }}
+              whileHover={{ y: -1 }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -167,7 +186,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 fontSize: '0.82rem',
                 fontFamily: 'var(--font-sans, inherit)',
                 cursor: 'pointer',
-                transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
                 whiteSpace: 'nowrap',
                 position: 'relative',
               }}
@@ -207,19 +225,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
 
               {isActive && (
-                <span
+                <motion.span
+                  layoutId="activeNavIndicator"
+                  transition={MOTION_SPRINGS.snappy}
                   style={{
                     position: 'absolute',
                     bottom: '-6px',
-                    left: '20%',
-                    right: '20%',
+                    left: '16%',
+                    right: '16%',
                     height: '2.5px',
                     backgroundColor: '#D96B43',
                     borderRadius: '3px 3px 0 0',
+                    boxShadow: '0 1px 6px rgba(217, 107, 67, 0.4)',
                   }}
                 />
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>

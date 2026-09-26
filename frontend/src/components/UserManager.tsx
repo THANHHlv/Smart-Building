@@ -516,7 +516,7 @@ export const UserManager: React.FC<UserManagerProps> = ({
                                   Căn {user.apartment_unit}
                                 </strong>
                                 <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '6px' }}>
-                                  ({user.building_name || 'Tòa Skyline'})
+                                  ({user.building_name || 'ThanhLe Smart Tower'})
                                 </span>
                               </div>
                             </div>

@@ -1,15 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
-  Home,
+  Building,
+  Building2,
+  ChevronDown,
   LogOut,
-  RefreshCw,
   Sparkles,
-  UserCheck,
-  Wifi,
-  WifiOff,
-  Newspaper,
 } from 'lucide-react';
-import type { UserProfile } from '../types';
+import type { ResidentApartment, UserProfile } from '../types';
+import type { PageId } from './Navbar';
 import { NotificationCenter } from './NotificationCenter';
 
 interface HeaderProps {
@@ -22,6 +20,13 @@ interface HeaderProps {
   onOpenAiAssistant?: () => void;
   onOpenBulletin?: () => void;
   unreadAnnouncementsCount?: number;
+  unassignedUsersCount?: number;
+  onOpenProfile?: () => void;
+  apartments?: ResidentApartment[];
+  currentApartmentId?: string | null;
+  onSelectApartment?: (apartmentId: string) => void;
+  activePage: PageId;
+  onSelectPage: (page: PageId) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,392 +37,504 @@ export const Header: React.FC<HeaderProps> = ({
   autoRefresh,
   onToggleAutoRefresh,
   onOpenAiAssistant,
-  onOpenBulletin,
+  onOpenBulletin: _onOpenBulletin,
   unreadAnnouncementsCount = 0,
+  unassignedUsersCount = 0,
+  onOpenProfile,
+  apartments = [],
+  currentApartmentId,
+  onSelectApartment,
+  activePage,
+  onSelectPage,
 }) => {
-
-  const [timeStr, setTimeStr] = useState<string>('');
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setTimeStr(
-        now.toLocaleTimeString('vi-VN', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-      );
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const isAdmin = currentUser?.role === 'admin';
+
+  interface SubNavItem {
+    id: PageId;
+    label: string;
+    adminOnly?: boolean;
+    badge?: number;
+    badgeColor?: string;
+  }
+
+  // Exact sub-navigation tabs matching role permissions
+  const subNavItems: SubNavItem[] = [
+    {
+      id: 'overview',
+      label: isAdmin ? 'Tổng Quan Tòa Nhà' : 'Căn Hộ Của Tôi',
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: 'operations' as PageId,
+            label: 'Vận Hành Ban Quản Lý',
+            adminOnly: true,
+          },
+          {
+            id: 'residents' as PageId,
+            label: 'Quản Lý Cư Dân & Căn Hộ',
+            adminOnly: true,
+            badge: unassignedUsersCount,
+            badgeColor: '#f43f5e',
+          },
+          {
+            id: 'maintenance' as PageId,
+            label: 'Giám Sát IoT & Cảm Biến',
+            adminOnly: true,
+          },
+        ]
+      : []),
+    {
+      id: 'billing',
+      label: isAdmin ? 'Quản Lý Hoá Đơn' : 'Năng Lượng & Điện Nước',
+    },
+    {
+      id: 'tickets',
+      label: isAdmin ? 'Phiếu Việc' : 'Yêu Cầu Hỗ Trợ',
+    },
+    {
+      id: 'bulletin',
+      label: 'Bảng Tin',
+      badge: unreadAnnouncementsCount,
+      badgeColor: '#D96B43',
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: 'rbac' as PageId,
+            label: 'Phân Quyền',
+            adminOnly: true,
+          },
+        ]
+      : []),
+    {
+      id: 'services',
+      label: 'Tiện Ích',
+    },
+  ];
 
   return (
     <header
-      className="glass-panel"
       style={{
-        padding: '16px 24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '14px',
-        borderBottom: '1px solid var(--border-medium)',
+        backgroundColor: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        width: '100%',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
       }}
     >
-      {/* Top Row: Brand & Status & Live Clock & User Actions */}
+      {/* ============================================================ */}
+      {/* ROW 1: Logo + Brand + AI Button + Area Pill + Bell + User + Exit */}
+      {/* ============================================================ */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          padding: '12px 24px',
           gap: '16px',
         }}
       >
-        {/* Brand & System Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {/* Left Brand Lockup */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Dark squircle container with golden building icon */}
           <div
             style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, #FDF7F2, #F8EDE4)',
-              border: '1px solid rgba(217, 107, 67, 0.3)',
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              backgroundColor: '#0F172A',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(217, 107, 67, 0.12)',
+              flexShrink: 0,
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.18)',
             }}
             aria-hidden="true"
           >
-            <Home size={24} color="#D96B43" strokeWidth={2.2} />
+            <Building2 size={24} color="#F59E0B" strokeWidth={2.2} />
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+              <span
                 style={{
-                  fontSize: '1.25rem',
+                  fontSize: '1.08rem',
                   fontWeight: 800,
                   letterSpacing: '-0.02em',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-display)',
+                  color: '#0F172A',
+                  fontFamily: 'Inter, var(--font-sans)',
+                  lineHeight: 1.2,
                 }}
               >
-                THANHLE TOWER
-              </h1>
-              <span
-                className={`badge ${isAdmin ? 'badge-telemetry' : 'badge-healthy'}`}
-                style={{ fontSize: '0.68rem', padding: '2px 8px' }}
-              >
-                {isAdmin ? 'BAN QUẢN LÝ' : 'CỘNG ĐỒNG CƯ DÂN'}
+                THANHLE SMART TOWER
               </span>
-              <span className="badge badge-low" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                {isAdmin ? 'ĐIỀU HÀNH CĂN HỘ' : `CĂN HỘ ${currentUser?.apartment_unit || '—'}`}
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#FEF3E2',
+                  color: '#C26D24',
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  letterSpacing: '0.03em',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isAdmin ? 'BAN QUẢN LÝ / OPERATIONS' : 'CỘNG ĐỒNG CƯ DÂN / RESIDENT'}
               </span>
             </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              {isAdmin
-                ? 'Theo dõi tiện nghi, tối ưu năng lượng & chăm sóc không gian sống tòa nhà'
-                : `Không gian sống an tâm của gia đình bạn${currentUser?.apartment_unit ? ` • Căn hộ ${currentUser.apartment_unit}` : ''}`}
-            </p>
+            <div
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                color: '#94A3B8',
+                marginTop: '1px',
+                textTransform: 'uppercase',
+              }}
+            >
+              SMART LIVING & IOT CLOUD PLATFORM
+            </div>
           </div>
         </div>
 
-        {/* System Health Indicators & Action Controls */}
-        <nav
-          aria-label="Tình trạng không gian sống và điều khiển đồng bộ"
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}
-        >
-          {isAdmin ? (
-            <>
-              {/* Tiêu chuẩn không khí trong lành */}
-              <div
-                role="status"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(74, 124, 89, 0.1)',
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid rgba(74, 124, 89, 0.25)',
-                  fontSize: '0.75rem',
-                  color: '#4A7C59',
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: 500,
-                }}
-              >
-                <span className="dot dot-green" />
-                <span>Không Khí:</span>
-                <span style={{ fontWeight: 600 }}>Trong Lành (AQI 28)</span>
-              </div>
-
-              {/* Năng lượng tòa nhà */}
-              <div
-                role="status"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(217, 107, 67, 0.08)',
-                  padding: '6px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid rgba(217, 107, 67, 0.25)',
-                  fontSize: '0.75rem',
-                  color: '#D96B43',
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: 500,
-                }}
-              >
-                <span className="dot dot-cyan" />
-                <span>Năng Lượng:</span>
-                <span style={{ fontWeight: 600 }}>Tối Ưu 24h</span>
-              </div>
-            </>
-          ) : (
-            /* Resident Connection Badge */
-            <div
-              role="status"
+        {/* Right Controls: AI Assistant, Area, Bell, User Profile, Exit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'nowrap' }}>
+          {/* Trợ Lý AI Tổ Ấm Pill Button */}
+          {onOpenAiAssistant && (
+            <button
+              type="button"
+              onClick={onOpenAiAssistant}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: 'rgba(74, 124, 89, 0.1)',
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid rgba(74, 124, 89, 0.25)',
-                fontSize: '0.75rem',
-                color: '#4A7C59',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              <UserCheck size={14} aria-hidden="true" />
-              <span>Cư Dân:</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{currentUser?.full_name}</span>
-            </div>
-          )}
-
-          {/* Clock Display */}
-          <time
-            dateTime={new Date().toISOString()}
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontVariantNumeric: 'tabular-nums',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              color: '#D96B43',
-              background: '#FAF7F2',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid #EFE9DF',
-              letterSpacing: '0.02em',
-            }}
-          >
-            {timeStr || '--:--:--'}
-          </time>
-
-          {/* Auto Refresh Toggle */}
-          <button
-            type="button"
-            onClick={onToggleAutoRefresh}
-            aria-pressed={autoRefresh}
-            className="btn btn-ghost"
-            style={{
-              fontSize: '0.75rem',
-              padding: '6px 12px',
-              color: autoRefresh ? '#34d399' : 'var(--text-muted)',
-              borderColor: autoRefresh ? 'var(--border-emerald)' : 'var(--border-subtle)',
-            }}
-            title="Bật/tắt tự động làm mới dữ liệu telemetry mỗi 5 giây"
-          >
-            {autoRefresh ? (
-              <Wifi size={14} color="#10b981" aria-hidden="true" />
-            ) : (
-              <WifiOff size={14} color="#64748b" aria-hidden="true" />
-            )}
-            <span>{autoRefresh ? 'Đồng bộ 5s' : 'Đã tạm dừng'}</span>
-          </button>
-
-          {/* Community Bulletin Quick Access */}
-          {onOpenBulletin && (
-            <button
-              type="button"
-              onClick={onOpenBulletin}
-              className="btn btn-ghost"
-              style={{
+                padding: '7px 15px',
+                borderRadius: '9999px',
+                background: 'linear-gradient(135deg, #D96B43 0%, #C25E38 100%)',
+                color: '#FFFFFF',
+                border: 'none',
                 fontSize: '0.78rem',
-                padding: '6px 12px',
-                position: 'relative',
-                color: unreadAnnouncementsCount > 0 ? '#D96B43' : 'var(--text-secondary)',
-                borderColor: unreadAnnouncementsCount > 0 ? 'rgba(217, 107, 67, 0.4)' : 'var(--border-subtle)',
-                background: unreadAnnouncementsCount > 0 ? 'rgba(217, 107, 67, 0.08)' : 'transparent',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(217, 107, 67, 0.28)',
+                transition: 'all 0.15s ease',
               }}
-              title="Bảng tin chung cư & thông báo khẩn cấp"
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.92')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+              title="Mở Trợ Lý AI Tổ Ấm thông minh"
             >
-              <Newspaper size={15} color={unreadAnnouncementsCount > 0 ? '#D96B43' : undefined} />
-              <span>Bảng Tin</span>
-              {unreadAnnouncementsCount > 0 && (
-                <span
-                  style={{
-                    background: '#D96B43',
-                    color: '#FFFFFF',
-                    borderRadius: '10px',
-                    padding: '1px 6px',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                  }}
-                >
-                  {unreadAnnouncementsCount}
-                </span>
-              )}
+              <Sparkles size={14} color="#FEF08A" />
+              <span>Trợ Lý AI Tổ Ấm</span>
             </button>
           )}
 
-          {/* Notification Center */}
-          <NotificationCenter currentUserId={currentUser?.id} />
-
-          {/* Manual Refresh Button */}
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            aria-label="Làm mới chỉ số telemetry"
-            className="btn btn-primary"
-            style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+          {/* Area Selector Dropdown Pill: Tòa A • Toàn Khu Vực */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '9999px',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              color: '#334155',
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+            }}
           >
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} aria-hidden="true" />
-            <span>{isRefreshing ? 'Đang đồng bộ...' : 'Làm mới'}</span>
-          </button>
+            <Building size={14} color="#64748B" />
+            {apartments && apartments.length > 0 ? (
+              <select
+                aria-label="Chọn căn hộ hoặc khu vực"
+                value={currentApartmentId || currentUser?.apartment_id || (apartments[0]?.apartment_id ?? '')}
+                onChange={(e) => onSelectApartment?.(e.target.value)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '0.78rem',
+                  fontWeight: 500,
+                  color: '#334155',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                {apartments.map((apt) => (
+                  <option key={apt.id} value={apt.apartment_id}>
+                    Tòa A • Căn {apt.unit_number} ({apt.building_name || 'Tòa nhà'})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span>{currentUser?.apartment_unit ? `Tòa A • Căn ${currentUser.apartment_unit}` : 'Tòa A • Toàn Khu Vực'}</span>
+            )}
+            <ChevronDown size={13} color="#94A3B8" />
+          </div>
 
-          {/* Logout Button */}
+          {/* Circular Notification Bell with Red Badge */}
+          <NotificationCenter currentUserId={currentUser?.id} circleStyle={true} />
+
+          {/* User Profile Block */}
+          <div
+            onClick={onOpenProfile}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenProfile?.();
+              }
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              padding: '3px 6px',
+              borderRadius: '8px',
+              transition: 'background 0.15s ease',
+            }}
+            title="Xem và chỉnh sửa hồ sơ cá nhân"
+          >
+            {/* Avatar */}
+            {currentUser?.avatar_url ? (
+              <img
+                src={currentUser.avatar_url}
+                alt={currentUser.full_name || 'User Avatar'}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '1px solid #E2E8F0',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #1E293B, #0F172A)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#38BDF8',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  border: '1px solid #CBD5E1',
+                }}
+              >
+                {currentUser?.full_name?.[0]?.toUpperCase() || 'A'}
+              </div>
+            )}
+
+            <div>
+              <div
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  color: '#1E293B',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {currentUser?.full_name || (isAdmin ? 'Nguyễn Quản Trị (Super Admin)' : 'Cư Dân')}
+              </div>
+              <div
+                style={{
+                  fontSize: '0.7rem',
+                  color: '#94A3B8',
+                  lineHeight: 1.2,
+                  marginTop: '2px',
+                }}
+              >
+                {isAdmin ? 'Super Admin' : (currentUser?.apartment_unit ? `Căn hộ ${currentUser.apartment_unit}` : 'Cư Dân')}
+              </div>
+            </div>
+          </div>
+
+          {/* Circular Logout Button */}
           <button
             type="button"
             onClick={onLogout}
-            className="btn btn-ghost"
             style={{
-              fontSize: '0.75rem',
-              padding: '6px 12px',
-              color: '#fb7185',
-              borderColor: 'var(--border-rose)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#64748B',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
             }}
-            title="Đăng xuất"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#0F172A';
+              e.currentTarget.style.backgroundColor = '#F8FAFC';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#64748B';
+              e.currentTarget.style.backgroundColor = '#FFFFFF';
+            }}
+            title="Đăng xuất khỏi hệ thống"
           >
-            <LogOut size={14} aria-hidden="true" />
-            <span>Đăng Xuất</span>
+            <LogOut size={16} />
           </button>
-        </nav>
+        </div>
       </div>
 
-      {/* Bottom Row: Authenticated User Info */}
+      {/* ============================================================ */}
+      {/* ROW 2: Sub-navigation Tabs (Left) + Live Sync Status (Right) */}
+      {/* ============================================================ */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          paddingTop: '10px',
-          borderTop: '1px solid var(--border-subtle)',
+          padding: '0 24px',
+          borderTop: '1px solid #F1F5F9',
+          backgroundColor: '#FFFFFF',
+          gap: '16px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* User Avatar */}
-          <div
+        {/* Navigation Tabs */}
+        <div
+          role="tablist"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '24px',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            minWidth: 0,
+          }}
+        >
+          {subNavItems.map((item) => {
+            const isActive = activePage === item.id;
+            return (
+              <button
+                key={item.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onSelectPage(item.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: isActive ? '2px solid #C25E38' : '2px solid transparent',
+                  padding: '9px 0 8px 0',
+                  color: isActive ? '#C25E38' : '#475569',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'color 0.15s ease, border-color 0.15s ease',
+                  fontFamily: 'Inter, var(--font-sans)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = '#0F172A';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = '#475569';
+                }}
+              >
+                <span>{item.label}</span>
+                {item.badge && item.badge > 0 ? (
+                  <span
+                    style={{
+                      backgroundColor: item.badgeColor || '#C25E38',
+                      color: '#FFFFFF',
+                      borderRadius: '10px',
+                      padding: '0 5px',
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      lineHeight: '14px',
+                      height: '14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live Sync Status Pill */}
+        <div
+          onClick={onToggleAutoRefresh || onRefresh}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggleAutoRefresh?.();
+            }
+          }}
+          title="Bấm để bật/tắt đồng bộ tự động hoặc làm mới telemetry"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '7px 0',
+            cursor: 'pointer',
+            userSelect: 'none',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ position: 'relative', display: 'flex', width: '9px', height: '9px' }}>
+            <span
+              className="animate-ping"
+              style={{
+                position: 'absolute',
+                display: 'inline-flex',
+                height: '100%',
+                width: '100%',
+                borderRadius: '50%',
+                backgroundColor: '#10B981',
+                opacity: autoRefresh ? 0.75 : 0,
+              }}
+            />
+            <span
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                borderRadius: '50%',
+                height: '9px',
+                width: '9px',
+                backgroundColor: autoRefresh ? '#10B981' : '#94A3B8',
+              }}
+            />
+          </div>
+          <span
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--radius-full)',
-              background: isAdmin
-                ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.3))'
-                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(6, 182, 212, 0.3))',
-              border: isAdmin ? '1px solid var(--border-cyan)' : '1px solid var(--border-emerald)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.78rem',
+              fontFamily: 'monospace, var(--font-mono)',
+              fontSize: '0.74rem',
               fontWeight: 700,
-              color: isAdmin ? '#38bdf8' : '#34d399',
+              color: autoRefresh ? '#065F46' : '#64748B',
+              letterSpacing: '0.04em',
             }}
           >
-            {currentUser?.full_name?.[0]?.toUpperCase() || '?'}
-          </div>
-
-          <div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {currentUser?.full_name || 'Cư Dân'}
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-              {currentUser?.email}
-              {currentUser?.building_name && (
-                <span style={{ marginLeft: '8px', color: 'var(--text-subtle)' }}>
-                  • {currentUser.building_name}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {onOpenAiAssistant && (
-            <button
-              onClick={onOpenAiAssistant}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '5px 12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(217, 107, 67, 0.08)',
-                border: '1px solid rgba(217, 107, 67, 0.3)',
-                color: '#D96B43',
-                borderRadius: '8px',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-              title="Mở Trợ Lý AI Tòa Nhà thông minh"
-            >
-              <Sparkles size={13} />
-              <span>Trợ Lý AI</span>
-            </button>
-          )}
-
-          <span
-            className={`badge ${isAdmin ? 'badge-telemetry' : 'badge-healthy'}`}
-            style={{ fontSize: '0.7rem', padding: '3px 10px' }}
-          >
-            {isAdmin ? '👑 Ban Quản Trị' : '🏠 Cư Dân'}
+            {isRefreshing ? 'SYNC: ĐANG TẢI...' : (autoRefresh ? 'SYNC: LIVE 0.8s' : 'SYNC: TẠM DỪNG')}
           </span>
-          {currentUser?.apartment_unit && (
-            <span
-              className="badge badge-low"
-              style={{ fontSize: '0.7rem', padding: '3px 10px' }}
-            >
-              Căn {currentUser.apartment_unit}
-            </span>
-          )}
-          {!currentUser?.apartment_id && currentUser?.role === 'resident' && (
-            <span
-              className="badge"
-              style={{
-                fontSize: '0.7rem',
-                padding: '3px 10px',
-                background: 'rgba(245, 158, 11, 0.12)',
-                color: '#fbbf24',
-                border: '1px solid var(--border-amber)',
-              }}
-            >
-              ⏳ Chờ gán căn hộ
-            </span>
-          )}
         </div>
       </div>
-
     </header>
   );
 };

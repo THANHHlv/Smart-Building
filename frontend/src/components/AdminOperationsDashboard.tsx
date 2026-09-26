@@ -149,6 +149,47 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
     return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
   };
 
+  const getServiceLabel = (serviceName?: string, serviceType?: string): string => {
+    const cleanKey = (serviceType || serviceName || '')
+      .toLowerCase()
+      .replace('servicetype.', '')
+      .trim();
+
+    const labels: Record<string, string> = {
+      electricity: 'Tiền Điện Tiêu Thụ',
+      water: 'Tiền Nước Sinh Hoạt',
+      management: 'Phí Quản Lý Vận Hành',
+      management_fee: 'Phí Quản Lý Vận Hành',
+      parking: 'Phí Gửi Xe Tầng Hầm',
+      maintenance: 'Sửa Chữa & Bảo Trì',
+      other: 'Dịch Vụ Khác',
+    };
+
+    if (labels[cleanKey]) {
+      return labels[cleanKey];
+    }
+
+    if (serviceName && !serviceName.toLowerCase().startsWith('servicetype.')) {
+      return serviceName;
+    }
+
+    return cleanKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Dịch Vụ Khác';
+  };
+
+  const getServiceIcon = (serviceType?: string): string => {
+    const cleanKey = (serviceType || '').toLowerCase().replace('servicetype.', '').trim();
+    const icons: Record<string, string> = {
+      electricity: '⚡',
+      water: '💧',
+      management: '🏢',
+      management_fee: '🏢',
+      parking: '🚗',
+      maintenance: '🛠️',
+      other: '📦',
+    };
+    return icons[cleanKey] || '📋';
+  };
+
   const content = (
     <div
       style={{
@@ -220,7 +261,7 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                     border: '1px solid rgba(74, 124, 89, 0.25)',
                   }}
                 >
-                  THE OASIS TOWER
+                  THANHLE SMART TOWER
                 </span>
               </div>
               <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: '#786F66' }}>
@@ -1083,8 +1124,9 @@ export const AdminOperationsDashboard: React.FC<AdminOperationsDashboardProps> =
                 {overview?.revenue_by_service?.map((s) => (
                   <div key={s.service_type} style={{ padding: '12px 14px', backgroundColor: '#FAF7F2', borderRadius: '8px', border: '1px solid #EFE9DF' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#2D2825' }}>
-                        {s.service_name}
+                      <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#2D2825', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{getServiceIcon(s.service_type)}</span>
+                        <span>{getServiceLabel(s.service_name, s.service_type)}</span>
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#4A4036' }}>

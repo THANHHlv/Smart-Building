@@ -361,14 +361,14 @@ class BillingEngine:
             total_amount += water_cost
 
         # 3. Management fee — based on apartment area
-        area_sqm = apartment.area_sqm or 0.0
+        area_sqm = float(apartment.area_sqm) if apartment.area_sqm is not None else 0.0
         if area_sqm > 0:
-            mgmt_fee = int(round(area_sqm * mgmt_fee_rate))
+            mgmt_fee = int(round(area_sqm * float(mgmt_fee_rate)))
             items.append(InvoiceItem(
                 service_type=ServiceType.MANAGEMENT_FEE,
                 description=f"Phí quản lý tháng {cycle.period_start.strftime('%m/%Y')} — {area_sqm:.0f} m²",
                 quantity=area_sqm,
-                unit_price=mgmt_fee_rate,
+                unit_price=float(mgmt_fee_rate),
                 amount=mgmt_fee,
             ))
             total_amount += mgmt_fee

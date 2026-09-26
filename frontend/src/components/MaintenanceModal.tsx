@@ -493,7 +493,7 @@ export const MaintenanceModal: React.FC<MaintenanceModalProps> = ({
 
                           <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', gap: '12px' }}>
                             <span>
-                              Căn Hộ: <strong style={{ color: '#38bdf8' }}>Căn {t.apartment_unit}</strong> ({t.building_name || 'Skyline Tower'})
+                              Căn Hộ: <strong style={{ color: '#38bdf8' }}>Căn {t.apartment_unit}</strong> ({t.building_name || 'ThanhLe Smart Tower'})
                             </span>
                             <span>•</span>
                             <span>Người gửi: {t.resident_name || 'Cư Dân'}</span>

@@ -184,7 +184,8 @@ async def test_register_duplicate_email(client: AsyncClient, setup_auth_data):
         },
     )
     assert response.status_code == 409
-    assert "already exists" in response.json()["detail"].lower()
+    detail = response.json()["detail"].lower()
+    assert "already exists" in detail or "đã được đăng ký" in detail
 
 
 @pytest.mark.asyncio

@@ -15,6 +15,13 @@ from app.models.energy_consumption import EnergyConsumption
 from app.models.water_consumption import WaterConsumption
 from app.models.alert import Alert, AlertSeverity, AlertStatus
 from app.models.user import User
+from app.models.profile import (
+    Profile,
+    ApartmentResident,
+    TechnicianProfile,
+    ResidentRelationship,
+    ResidentStatus,
+)
 from app.models.maintenance import MaintenanceTicket, TicketUrgency, TicketStatus
 
 # --- Payment & Billing ---
@@ -70,6 +77,11 @@ __all__ = [
     "AlertSeverity",
     "AlertStatus",
     "User",
+    "Profile",
+    "ApartmentResident",
+    "TechnicianProfile",
+    "ResidentRelationship",
+    "ResidentStatus",
     "MaintenanceTicket",
     "TicketUrgency",
     "TicketStatus",

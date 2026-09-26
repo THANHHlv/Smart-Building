@@ -125,6 +125,24 @@ class PayInvoiceResponse(BaseModel):
     provider: str
 
 
+class PaymentOptionsResponse(BaseModel):
+    online_enabled: bool
+    bank_name: str | None = None
+    bank_account: str | None = None
+    bank_account_name: str | None = None
+
+
+class PendingManualConfirmationResponse(BaseModel):
+    id: UUID
+    invoice_id: UUID
+    invoice_number: str
+    apartment_id: UUID
+    amount: float
+    method: str
+    note: str | None = None
+    submitted_at: datetime
+
+
 # ---------------------------------------------------------------------------
 # Payment Methods
 # ---------------------------------------------------------------------------

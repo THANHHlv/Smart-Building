@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
+from app.models.profile import ApartmentResident, ResidentStatus
 from app.models.alert import Alert
 from app.models.apartment import Apartment
 from app.models.building import Building
@@ -42,21 +43,52 @@ async def get_resident_dashboard(
     apartment_id: UUID | None = None,
 ):
     """Retrieve personalized telemetry, devices, and metrics for the resident's apartment only."""
-    # If user is resident, they are strictly locked to current_user.apartment_id
     target_apt_id = current_user.apartment_id
-    if current_user.role == "admin" and apartment_id:
-        # Admin can view a specific apartment's resident view for testing
-        target_apt_id = apartment_id
+
+    if current_user.role == "admin":
+        if apartment_id:
+            target_apt_id = apartment_id
+    else:
+        if apartment_id:
+            # Verify resident actually belongs to this apartment
+            is_valid_apt = (target_apt_id == apartment_id)
+            if not is_valid_apt:
+                res_check = await db.execute(
+                    select(ApartmentResident.id).where(
+                        ApartmentResident.user_id == current_user.id,
+                        ApartmentResident.apartment_id == apartment_id,
+                        ApartmentResident.status == ResidentStatus.ACTIVE,
+                    )
+                )
+                if res_check.scalar_one_or_none():
+                    is_valid_apt = True
+
+            if not is_valid_apt:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Bạn không có quyền truy cập căn hộ này",
+                )
+            target_apt_id = apartment_id
+        elif not target_apt_id:
+            # Check if user has active apartment_residents
+            active_res = await db.execute(
+                select(ApartmentResident.apartment_id).where(
+                    ApartmentResident.user_id == current_user.id,
+                    ApartmentResident.status == ResidentStatus.ACTIVE,
+                ).order_by(ApartmentResident.is_primary_contact.desc()).limit(1)
+            )
+            target_apt_id = active_res.scalar_one_or_none()
 
     if not target_apt_id:
-        # Fallback for admin if no apartment bound: pick the first apartment
-        first_apt = await db.execute(select(Apartment.id).limit(1))
-        target_apt_id = first_apt.scalar_one_or_none()
+        if current_user.role == "admin":
+            # Fallback for admin if no apartment bound: pick the first apartment
+            first_apt = await db.execute(select(Apartment.id).limit(1))
+            target_apt_id = first_apt.scalar_one_or_none()
 
     if not target_apt_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No apartment found or bound to this account",
+            detail="Không tìm thấy thông tin căn hộ hợp lệ cho tài khoản này",
         )
 
     # 1. Fetch Apartment Info
@@ -76,7 +108,7 @@ async def get_resident_dashboard(
         id=apartment.id,
         unit_number=apartment.unit_number,
         floor_number=apartment.floor.floor_number if apartment.floor else 1,
-        building_name=apartment.floor.building.name if apartment.floor and apartment.floor.building else "Skyline Tower",
+        building_name=apartment.floor.building.name if apartment.floor and apartment.floor.building else "ThanhLe Smart Tower",
         building_address=apartment.floor.building.address if apartment.floor and apartment.floor.building else "",
         area_sqm=apartment.area_sqm,
         num_rooms=apartment.num_rooms,

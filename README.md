@@ -53,6 +53,25 @@ python -m pytest tests/ -v
 uvicorn app.main:app --reload
 ```
 
+### Run the local backend against Aurora PostgreSQL with IAM
+
+The local backend can use the data in the `postgres` database on Aurora without storing a database password. Set these values in `backend/.env`:
+
+```dotenv
+POSTGRES_HOST=<cluster endpoint>
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=
+POSTGRES_AUTH_MODE=iam
+POSTGRES_SSL_ROOT_CERT=certs/AmazonRootCA1.pem
+AWS_REGION=us-east-2
+AWS_CLI_PATH=<path to aws executable>
+TEST_DATABASE_URL=<isolated local test database URL>
+```
+
+Run `aws login --region us-east-2` with an identity allowed to connect to the database, then start the backend from `backend/`. Each new database connection obtains a fresh IAM token. The checked-in CA certificate comes from the [Amazon Trust Services repository](https://www.amazontrust.com/repository/AmazonRootCA1.pem). `run_demo.ps1` skips data seeding in IAM mode, and `-ResetData` is disabled in that mode. Keep `TEST_DATABASE_URL` pointed at an isolated local database when running pytest.
+
 ### API Documentation
 
 Once running, visit:

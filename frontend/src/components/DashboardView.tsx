@@ -36,11 +36,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Lọc danh sách thiết bị liên quan đến căn hộ đang chọn
   const apartmentDevices = selectedApartment
-    ? devices.filter((d) => d.name?.includes(selectedApartment.unitNumber) || d.apartment_id)
+    ? devices.filter(
+        (d) =>
+          (d.apartment_id && selectedApartment.id && d.apartment_id === selectedApartment.id) ||
+          (d.name && d.name.includes(selectedApartment.unitNumber)) ||
+          (d.device_code && d.device_code.includes(selectedApartment.unitNumber))
+      )
     : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
       {/* 1. Dải Tiện Nghi & Nhịp Sống Tòa Nhà Thân Thiện */}
       <section
         aria-label="Nhịp sống và tiện nghi tòa nhà"
@@ -104,6 +110,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <BuildingScene
           selectedApt={selectedApartment}
           onSelectApartment={(apt) => setSelectedApartment(apt)}
+          alerts={alerts}
+          devices={devices}
         />
 
         {/* Panel Chi Tiết Căn Hộ Khi Được Chọn */}
@@ -145,7 +153,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     Căn Hộ {selectedApartment.unitNumber} • Tầng {selectedApartment.floor}
                   </h3>
                   <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    Gia đình cư dân The Oasis • Hướng Đông Nam • {apartmentDevices.length > 0 ? `${apartmentDevices.length} thiết bị sinh hoạt` : 'Thiết bị tiện nghi'}
+                    Gia đình cư dân ThanhLe Smart Tower • Hướng Đông Nam • {apartmentDevices.length > 0 ? `${apartmentDevices.length} thiết bị sinh hoạt` : 'Thiết bị tiện nghi'}
                   </p>
                 </div>
               </div>

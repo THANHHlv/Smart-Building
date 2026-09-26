@@ -10,6 +10,7 @@ interface CountUpNumberProps {
   decimals?: number;
   unit?: string;
   className?: string;
+  isCurrencyVND?: boolean;
 }
 
 export const CountUpNumber: React.FC<CountUpNumberProps> = ({
@@ -17,6 +18,7 @@ export const CountUpNumber: React.FC<CountUpNumberProps> = ({
   decimals = 1,
   unit = '',
   className = '',
+  isCurrencyVND = false,
 }) => {
   const springValue = useSpring(0, {
     stiffness: 75,
@@ -24,12 +26,15 @@ export const CountUpNumber: React.FC<CountUpNumberProps> = ({
     mass: 0.8,
   });
 
-  const display = useTransform(springValue, (current) =>
-    current.toLocaleString('vi-VN', {
+  const display = useTransform(springValue, (current) => {
+    if (isCurrencyVND) {
+      return Math.round(current).toLocaleString('vi-VN');
+    }
+    return current.toLocaleString('vi-VN', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
-    })
-  );
+    });
+  });
 
   useEffect(() => {
     springValue.set(value);
@@ -46,7 +51,7 @@ export const CountUpNumber: React.FC<CountUpNumberProps> = ({
       }}
     >
       <motion.span>{display}</motion.span>
-      {unit && (
+      {(unit || isCurrencyVND) && (
         <span
           style={{
             marginLeft: '4px',
@@ -55,7 +60,7 @@ export const CountUpNumber: React.FC<CountUpNumberProps> = ({
             color: 'var(--text-secondary)',
           }}
         >
-          {unit}
+          {isCurrencyVND ? '₫' : unit}
         </span>
       )}
     </span>
@@ -349,5 +354,87 @@ export const CareNotice: React.FC<CareNoticeProps> = ({
         )}
       </div>
     </motion.article>
+  );
+};
+
+// ==========================================
+// 5. HUY HIỆU TRẠNG THÁI VỚI CHECKMARK VẼ DẦN (Status Badge Draw-In)
+// ==========================================
+interface StatusBadgeProps {
+  status: 'completed' | 'paid' | 'in_progress' | 'pending' | 'open' | 'overdue' | 'cancelled';
+  label?: string;
+  size?: 'sm' | 'md';
+}
+
+export const StatusBadge: React.FC<StatusBadgeProps> = ({
+  status,
+  label,
+  size = 'md',
+}) => {
+  const isComplete = status === 'completed' || status === 'paid';
+
+  const config = {
+    completed: { text: 'Hoàn thành', bg: 'rgba(74, 124, 89, 0.12)', color: '#4A7C59', border: 'rgba(74, 124, 89, 0.3)' },
+    paid: { text: 'Đã thanh toán', bg: 'rgba(74, 124, 89, 0.12)', color: '#4A7C59', border: 'rgba(74, 124, 89, 0.3)' },
+    in_progress: { text: 'Đang xử lý', bg: 'rgba(217, 107, 67, 0.12)', color: '#D96B43', border: 'rgba(217, 107, 67, 0.3)' },
+    pending: { text: 'Chờ duyệt', bg: 'rgba(184, 115, 25, 0.12)', color: '#B87319', border: 'rgba(184, 115, 25, 0.3)' },
+    open: { text: 'Mới tiếp nhận', bg: 'rgba(6, 182, 212, 0.12)', color: '#06B6D4', border: 'rgba(6, 182, 212, 0.3)' },
+    overdue: { text: 'Quá hạn', bg: 'rgba(200, 82, 82, 0.12)', color: '#C85252', border: 'rgba(200, 82, 82, 0.3)' },
+    cancelled: { text: 'Đã huỷ', bg: 'rgba(142, 134, 126, 0.12)', color: '#8E867E', border: 'rgba(142, 134, 126, 0.3)' },
+  }[status];
+
+  const displayLabel = label || config.text;
+
+  return (
+    <motion.span
+      layout
+      initial={{ scale: 0.95, opacity: 0.8 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: size === 'sm' ? '4px' : '6px',
+        padding: size === 'sm' ? '2px 7px' : '4px 10px',
+        borderRadius: size === 'sm' ? '6px' : '8px',
+        backgroundColor: config.bg,
+        color: config.color,
+        border: `1px solid ${config.border}`,
+        fontSize: size === 'sm' ? '0.7rem' : '0.78rem',
+        fontWeight: 600,
+        lineHeight: 1.2,
+        transition: 'background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease',
+      }}
+    >
+      {isComplete ? (
+        <svg
+          width={size === 'sm' ? 12 : 14}
+          height={size === 'sm' ? 12 : 14}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={config.color}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <motion.path
+            d="M20 6L9 17l-5-5"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+          />
+        </svg>
+      ) : (
+        <span
+          style={{
+            width: size === 'sm' ? '5px' : '6px',
+            height: size === 'sm' ? '5px' : '6px',
+            borderRadius: '50%',
+            backgroundColor: config.color,
+          }}
+        />
+      )}
+      <span>{displayLabel}</span>
+    </motion.span>
   );
 };

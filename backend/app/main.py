@@ -170,6 +170,10 @@ def create_app() -> FastAPI:
     uploads_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads/tickets", StaticFiles(directory=str(uploads_dir)), name="ticket_uploads")
 
+    avatar_dir = Path(settings.avatar_uploads_dir)
+    avatar_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads/avatars", StaticFiles(directory=str(avatar_dir)), name="avatar_uploads")
+
 
     # --- Prometheus Metrics ---
     try:

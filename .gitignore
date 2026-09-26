@@ -5,6 +5,7 @@
 .claude/
 .cursor/
 .windsurf/
+.ua/
 
 # Python
 __pycache__/

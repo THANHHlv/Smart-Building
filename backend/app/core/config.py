@@ -5,6 +5,7 @@ Loads settings from environment variables using pydantic-settings.
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -36,6 +37,11 @@ class Settings(BaseSettings):
     postgres_db: str = "smart_building"
     postgres_user: str = "postgres"
     postgres_password: str = "postgres"
+    postgres_auth_mode: Literal["password", "iam"] = "password"
+    postgres_ssl_root_cert: str | None = None
+    aws_region: str = "us-east-2"
+    aws_cli_path: str = "aws"
+    test_database_url: str | None = None
 
     # --- Redis ---
     redis_host: str = "localhost"
@@ -58,6 +64,9 @@ class Settings(BaseSettings):
     vnpay_payment_url: str = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
     vnpay_return_url: str = "http://localhost:5173/payment/return"
     payment_gateway_mock: bool = True  # Use mock gateway when no sandbox credentials
+    billing_bank_name: str = ""
+    billing_bank_account: str = ""
+    billing_bank_account_name: str = ""
 
     # --- Billing Engine ---
     billing_management_fee_per_sqm: int = 7000       # 7,000 đ/m²/month
@@ -88,6 +97,15 @@ class Settings(BaseSettings):
     ticket_auto_create_min_severity: str = "high"  # "high" or "critical"
     ticket_uploads_dir: str = "uploads/tickets"
 
+    # --- Avatar & Object Storage ---
+    avatar_uploads_dir: str = "uploads/avatars"
+    avatar_max_size_bytes: int = 5 * 1024 * 1024  # 5MB
+    minio_endpoint: str | None = None
+    minio_access_key: str | None = None
+    minio_secret_key: str | None = None
+    minio_bucket: str = "smart-building"
+    minio_secure: bool = False
+
 
     @property
     def database_url(self) -> str:
@@ -97,7 +115,7 @@ class Settings(BaseSettings):
         return URL.create(
             drivername="postgresql+asyncpg",
             username=self.postgres_user,
-            password=self.postgres_password,
+            password=self.postgres_password if self.postgres_auth_mode == "password" else None,
             host=self.postgres_host,
             port=self.postgres_port,
             database=self.postgres_db,
@@ -111,7 +129,7 @@ class Settings(BaseSettings):
         return URL.create(
             drivername="postgresql",
             username=self.postgres_user,
-            password=self.postgres_password,
+            password=self.postgres_password if self.postgres_auth_mode == "password" else None,
             host=self.postgres_host,
             port=self.postgres_port,
             database=self.postgres_db,

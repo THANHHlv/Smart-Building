@@ -94,7 +94,7 @@ async def chat_with_assistant(
             )
         else:
             reply = (
-                f"Chào Ban Quản Lý! Tôi là Trợ Lý AI Vận Hành Tòa Nhà Skyline Tower. "
+                f"Chào Ban Quản Lý! Tôi là Trợ Lý AI Vận Hành Tòa Nhà ThanhLe Smart Tower. "
                 f"Tình trạng hiện tại: {active_devs}/{dev_count} thiết bị IoT hoạt động, "
                 f"{open_alerts} cảnh báo mở ({crit_alerts} khẩn cấp), "
                 f"và {unassigned_users} cư dân chờ duyệt gán phòng. Bạn cần tôi hỗ trợ kiểm tra mục nào?"

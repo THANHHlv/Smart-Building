@@ -518,7 +518,7 @@ export const AnnouncementEditorModal: React.FC<AnnouncementEditorModalProps> = (
                 </p>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.76rem', color: '#8E867E', borderTop: '1px solid #EFE9DF', paddingTop: '10px' }}>
-                  <span>Người đăng: <strong>Ban Quản Lý The Oasis</strong></span>
+                  <span>Người đăng: <strong>Ban Quản Lý ThanhLe Smart Tower</strong></span>
                   {expiresAt && <span>Hạn: {expiresAt}</span>}
                 </div>
               </article>

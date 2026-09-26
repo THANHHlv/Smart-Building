@@ -47,7 +47,7 @@ export const AiAssistantDrawer: React.FC<AiAssistantDrawerProps> = ({
           {
             id: 'init-admin',
             sender: 'assistant',
-            text: 'Chào Ban Quản Lý! Tôi là Trợ Lý AI Vận Hành Tòa Nhà Skyline Tower. Tôi đã đồng bộ toàn bộ telemetry, sự kiện Kafka và chỉ số từ mô hình Isolation Forest. Bạn cần tôi phân tích dữ liệu nào hôm nay?',
+            text: 'Chào Ban Quản Lý! Tôi là Trợ Lý AI Vận Hành Tòa Nhà ThanhLe Smart Tower. Tôi đã đồng bộ toàn bộ telemetry, sự kiện Kafka và chỉ số từ mô hình Isolation Forest. Bạn cần tôi phân tích dữ liệu nào hôm nay?',
             actions: [
               { label: 'Kiểm tra cảnh báo khẩn cấp', action_type: 'navigate', target: 'alert_center' },
               { label: 'Cư dân chờ duyệt phòng', action_type: 'navigate', target: 'user_management' },

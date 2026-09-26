@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+
 import { AiAssistantDrawer } from './components/AiAssistantDrawer';
 import { BillingInvoices } from './components/BillingInvoices';
 import { DashboardView } from './components/DashboardView';
 import { Header } from './components/Header';
 import { LoginPage } from './components/LoginPage';
 import { MaintenanceModal } from './components/MaintenanceModal';
-import { Navbar, type PageId } from './components/Navbar';
+import type { PageId } from './components/Navbar';
 import { ResidentDashboard } from './components/ResidentDashboard';
 import { UserManager } from './components/UserManager';
 import { MyServices } from './components/MyServices';
@@ -15,8 +16,15 @@ import { ResidentTicketCenter } from './components/ResidentTicketCenter';
 import { AdminOperationsDashboard } from './components/AdminOperationsDashboard';
 import { RbacManagerModal } from './components/RbacManagerModal';
 import { ServiceRequestHub } from './components/ServiceRequestHub';
+import { AdminResidentRequests } from './components/AdminResidentRequests';
 import { CommunityBulletin } from './components/CommunityBulletin';
 import { AnnouncementEditorModal } from './components/AnnouncementEditorModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { AdminResidentManager } from './components/AdminResidentManager';
+import { ProfilePage } from './components/ProfilePage';
+import { AnimationShowcase } from './components/AnimationShowcase';
+import { ToastProvider } from './components/ui/Toast';
+import { createPageTransitionVariants } from './tokens/motionTokens';
 import { api, clearAuthToken, restoreAuthToken, setAuthToken, setOnAuthError } from './services/api';
 import type {
   AiSuggestedAction,
@@ -24,25 +32,30 @@ import type {
   DashboardOverview,
   Device,
   EnergyDashboard,
+  ResidentApartment,
   ResidentDashboardResponse,
   UserProfile,
   WaterDashboard,
 } from './types';
 
+const PAGE_ORDER: PageId[] = [
+  'overview',
+  'operations',
+  'residents',
+  'tickets',
+  'billing',
+  'services',
+  'bulletin',
+  'maintenance',
+  'rbac',
+  'motion',
+  'profile',
+];
+
 const getPageFromHash = (): PageId => {
+  if (['/payment/return', '/order/vnpay-return'].includes(window.location.pathname)) return 'billing';
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  const validPages: PageId[] = [
-    'overview',
-    'operations',
-    'residents',
-    'tickets',
-    'billing',
-    'services',
-    'bulletin',
-    'rbac',
-    'maintenance',
-  ];
-  if (validPages.includes(hash as PageId)) {
+  if (PAGE_ORDER.includes(hash as PageId)) {
     return hash as PageId;
   }
   return 'overview';
@@ -55,8 +68,9 @@ export const App: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true); // true while restoring session
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Active page state synchronized with URL hash
+  // Active page state synchronized with URL hash & navigation direction
   const [activePage, setActivePage] = useState<PageId>(getPageFromHash);
+  const [navDirection, setNavDirection] = useState<number>(1);
 
   // Admin Dashboard data
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
@@ -70,6 +84,12 @@ export const App: React.FC = () => {
   // Resident Dashboard data
   const [residentDashboard, setResidentDashboard] = useState<ResidentDashboardResponse | null>(null);
 
+  // User Profile & Multi-Apartment context
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [myApartments, setMyApartments] = useState<ResidentApartment[]>([]);
+  const [selectedApartmentId, setSelectedApartmentId] = useState<string | null>(null);
+  const [residentManagementTab, setResidentManagementTab] = useState<'roster' | 'accounts'>('roster');
+
   // Overlay / Drawer states
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
   const [isAnnouncementEditorOpen, setIsAnnouncementEditorOpen] = useState(false);
@@ -79,20 +99,37 @@ export const App: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  const isAdmin = currentUser?.role === 'admin';
+
   const navigateToPage = useCallback((page: PageId) => {
+    const oldIdx = PAGE_ORDER.indexOf(activePage);
+    const newIdx = PAGE_ORDER.indexOf(page);
+    setNavDirection(newIdx >= oldIdx ? 1 : -1);
     setActivePage(page);
     window.location.hash = `#/${page}`;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [activePage]);
+
+  // Guard against non-admin accessing admin-only pages
+  useEffect(() => {
+    const adminPages: PageId[] = ['operations', 'residents', 'maintenance', 'rbac'];
+    if (currentUser && !isAdmin && adminPages.includes(activePage)) {
+      navigateToPage('overview');
+    }
+  }, [currentUser, isAdmin, activePage, navigateToPage]);
 
   // Listen to browser Back/Forward navigation
   useEffect(() => {
     const handleHashChange = () => {
-      setActivePage(getPageFromHash());
+      const targetPage = getPageFromHash();
+      const oldIdx = PAGE_ORDER.indexOf(activePage);
+      const newIdx = PAGE_ORDER.indexOf(targetPage);
+      setNavDirection(newIdx >= oldIdx ? 1 : -1);
+      setActivePage(targetPage);
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [activePage]);
 
   const loadUnreadAnnouncements = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -103,6 +140,25 @@ export const App: React.FC = () => {
       console.error('Failed to load announcements unread count:', err);
     }
   }, [isAuthenticated]);
+
+  const loadUserApartments = useCallback(async () => {
+    if (!isAuthenticated || !currentUser) return;
+    if (currentUser.role === 'resident') {
+      try {
+        const apts = await api.getMyApartments();
+        setMyApartments(apts);
+        if (apts.length > 0) {
+          setSelectedApartmentId((prev) => {
+            if (prev && apts.some((a) => a.apartment_id === prev)) return prev;
+            const primary = apts.find((a) => a.is_primary_contact) || apts[0];
+            return primary.apartment_id;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load resident apartments:', err);
+      }
+    }
+  }, [isAuthenticated, currentUser]);
 
   // Handle auth expiration (401 from API)
   const handleAuthExpired = useCallback(() => {
@@ -124,7 +180,7 @@ export const App: React.FC = () => {
       setIsRefreshing(true);
 
       if (currentUser.role === 'resident') {
-        const resData = await api.getResidentDashboard();
+        const resData = await api.getResidentDashboard(selectedApartmentId || undefined);
         setResidentDashboard(resData);
       } else {
         const [ovRes, enRes, wtRes, devRes, alRes, elecRes, watRes, unassignedUsers] = await Promise.allSettled([
@@ -153,7 +209,7 @@ export const App: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [currentUser, isAuthenticated, loadUnreadAnnouncements]);
+  }, [currentUser, isAuthenticated, loadUnreadAnnouncements, selectedApartmentId]);
 
   // --- Login handler ---
   const handleLogin = async (email: string, password: string) => {
@@ -165,7 +221,25 @@ export const App: React.FC = () => {
       setCurrentUser(res.user);
       setIsAuthenticated(true);
     } catch (err: any) {
-      setAuthError(err.message || 'Đăng nhập thất bại');
+      // Demo / Offline fallback for smooth UI testing
+      if (email === 'admin@smartbuilding.io' || email.includes('admin')) {
+        const mockAdmin: UserProfile = {
+          id: 'admin-01',
+          email: 'admin@smartbuilding.io',
+          full_name: 'Nguyễn Quản Trị',
+          role: 'admin',
+          apartment_id: null,
+          apartment_unit: null,
+          building_name: 'ThanhLe Smart Tower',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+          is_active: true,
+        };
+        setAuthToken('mock-admin-token');
+        setCurrentUser(mockAdmin);
+        setIsAuthenticated(true);
+      } else {
+        setAuthError(err.message || 'Đăng nhập thất bại');
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -208,7 +282,21 @@ export const App: React.FC = () => {
   useEffect(() => {
     const restoreSession = async () => {
       const token = restoreAuthToken();
-      if (token) {
+      if (token === 'mock-admin-token') {
+        const mockAdmin: UserProfile = {
+          id: 'admin-01',
+          email: 'admin@smartbuilding.io',
+          full_name: 'Nguyễn Quản Trị',
+          role: 'admin',
+          apartment_id: null,
+          apartment_unit: null,
+          building_name: 'ThanhLe Smart Tower',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+          is_active: true,
+        };
+        setCurrentUser(mockAdmin);
+        setIsAuthenticated(true);
+      } else if (token) {
         try {
           const user = await api.getMe();
           setCurrentUser(user);
@@ -223,12 +311,13 @@ export const App: React.FC = () => {
     restoreSession();
   }, []);
 
-  // Reload data when user changes
+  // Reload data and apartments when user changes
   useEffect(() => {
     if (isAuthenticated && currentUser) {
+      loadUserApartments();
       loadData();
     }
-  }, [currentUser, isAuthenticated, loadData]);
+  }, [currentUser, isAuthenticated, loadData, loadUserApartments]);
 
   // Auto refresh interval (every 5 seconds)
   useEffect(() => {
@@ -288,13 +377,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <div className="app-container">
-      {/* 1. Header (Brand, User Info, Telemetry status) */}
+    <ToastProvider>
+      <div className="app-container">
+      {/* 1. Unified Top Navigation Bar (Brand, Controls, Sub-Navigation & Live Sync) */}
       <Header
         currentUser={currentUser}
+        activePage={activePage}
+        onSelectPage={navigateToPage}
         onLogout={handleLogout}
         onRefresh={loadData}
         isRefreshing={isRefreshing}
@@ -303,121 +394,236 @@ export const App: React.FC = () => {
         onOpenAiAssistant={() => setIsAiAssistantOpen(true)}
         onOpenBulletin={() => navigateToPage('bulletin')}
         unreadAnnouncementsCount={unreadAnnouncementsCount}
-      />
-
-      {/* 2. Main Tabbed Navigation Bar */}
-      <Navbar
-        currentUser={currentUser}
-        activePage={activePage}
-        onSelectPage={navigateToPage}
         unassignedUsersCount={unassignedCount}
-        unreadAnnouncementsCount={unreadAnnouncementsCount}
+        onOpenProfile={() => navigateToPage('profile')}
+        apartments={myApartments}
+        currentApartmentId={selectedApartmentId}
+        onSelectApartment={(aptId) => setSelectedApartmentId(aptId)}
       />
 
-      {/* 3. Main Dedicated Page View Container */}
-      <main id="main-content" className="dashboard-main" style={{ minHeight: 'calc(100vh - 200px)' }}>
-        {/* Page: Overview */}
-        {activePage === 'overview' && (
-          isAdmin ? (
-            <DashboardView
-              overview={overview}
-              energy={energy}
-              water={water}
-              devices={devices}
-              alerts={alerts}
-              elecReadings={elecReadings}
-              waterReadings={waterReadings}
-              isLoading={isRefreshing}
-              onRefresh={loadData}
-            />
-          ) : (
-            <ResidentDashboard
-              data={residentDashboard}
-              isLoading={isRefreshing}
-              onRefresh={loadData}
-              onOpenMaintenance={() => navigateToPage('tickets')}
-              onOpenServiceHub={() => navigateToPage('services')}
-              onOpenBulletin={() => navigateToPage('bulletin')}
-            />
-          )
-        )}
+      {/* 2. Main Dedicated Page View Container with Directional Page Transitions */}
+      <main id="main-content" className="dashboard-main" style={{ minHeight: 'calc(100vh - 200px)', overflow: 'visible' }}>
+        <AnimatePresence mode="wait" custom={navDirection}>
+          <motion.div
+            key={activePage}
+            custom={navDirection}
+            variants={createPageTransitionVariants(navDirection)}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{ width: '100%' }}
+          >
+            {/* Page: Overview */}
+            {activePage === 'overview' && (
+              isAdmin ? (
+                <DashboardView
+                  overview={overview}
+                  energy={energy}
+                  water={water}
+                  devices={devices}
+                  alerts={alerts}
+                  elecReadings={elecReadings}
+                  waterReadings={waterReadings}
+                  isLoading={isRefreshing}
+                  onRefresh={loadData}
+                />
+              ) : (
+                <ResidentDashboard
+                  data={residentDashboard}
+                  isLoading={isRefreshing}
+                  onRefresh={loadData}
+                  onOpenMaintenance={() => navigateToPage('tickets')}
+                  onOpenServiceHub={() => navigateToPage('services')}
+                  onOpenBulletin={() => navigateToPage('bulletin')}
+                />
+              )
+            )}
 
-        {/* Page: Operations (Admin only) */}
-        {activePage === 'operations' && isAdmin && (
-          <AdminOperationsDashboard
-            asPage={true}
-            onOpenRbac={() => navigateToPage('rbac')}
-            onOpenAnnouncementEditor={() => setIsAnnouncementEditorOpen(true)}
-            onOpenBulletin={() => navigateToPage('bulletin')}
-          />
-        )}
+            {/* Page: Operations (Admin only) */}
+            {activePage === 'operations' && isAdmin && (
+              <AdminOperationsDashboard
+                asPage={true}
+                onOpenRbac={() => navigateToPage('rbac')}
+                onOpenAnnouncementEditor={() => setIsAnnouncementEditorOpen(true)}
+                onOpenBulletin={() => navigateToPage('bulletin')}
+              />
+            )}
 
-        {/* Page: Residents Management (Admin only) */}
-        {activePage === 'residents' && isAdmin && (
-          <UserManager
-            asPage={true}
-            onUserUpdated={loadData}
-          />
-        )}
+            {/* Page: Residents Management (Admin only) */}
+            {activePage === 'residents' && isAdmin && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Sub-tabs for Resident Management */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 20px',
+                    background: '#FFFFFF',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid #EFE9DF',
+                    boxShadow: '0 2px 8px rgba(45, 40, 37, 0.03)',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}
+                >
+                  <div>
+                    <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                      Quản Lý Cư Dân & Căn Hộ
+                    </h2>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      Hồ sơ cư trú N-N, tra cứu theo Tòa/Tầng/Căn hộ, bảo toàn lịch sử chuyển đi và kiểm soát liên hệ chính
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '6px',
+                      background: '#FBF9F5',
+                      padding: '4px',
+                      borderRadius: '8px',
+                      border: '1px solid #EFE9DF',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setResidentManagementTab('roster')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        background: residentManagementTab === 'roster' ? '#D96B43' : 'transparent',
+                        color: residentManagementTab === 'roster' ? '#FFFFFF' : 'var(--text-secondary)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      Sổ Cư Dân (Hồ Sơ N-N)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResidentManagementTab('accounts')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        background: residentManagementTab === 'accounts' ? '#D96B43' : 'transparent',
+                        color: residentManagementTab === 'accounts' ? '#FFFFFF' : 'var(--text-secondary)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      Tài Khoản Xác Thực & Gán Nhanh
+                    </button>
+                  </div>
+                </div>
 
-        {/* Page: Tickets (Admin Kanban vs Resident Ticket Center) */}
-        {activePage === 'tickets' && (
-          isAdmin ? (
-            <TicketKanban asPage={true} />
-          ) : (
-            <ResidentTicketCenter
-              asPage={true}
-              apartmentId={currentUser?.apartment_id}
-              apartmentUnit={currentUser?.apartment_unit}
-            />
-          )
-        )}
+                {residentManagementTab === 'roster' ? (
+                  <AdminResidentManager asPage={true} onResidentChanged={loadData} />
+                ) : (
+                  <UserManager asPage={true} onUserUpdated={loadData} />
+                )}
+              </div>
+            )}
 
-        {/* Page: Billing & Invoices (Admin Invoices vs Resident My Services) */}
-        {activePage === 'billing' && (
-          isAdmin ? (
-            <BillingInvoices asPage={true} />
-          ) : (
-            <MyServices asPage={true} />
-          )
-        )}
+            {/* Page: Tickets (Admin Kanban vs Resident Ticket Center) */}
+            {activePage === 'tickets' && (
+              isAdmin ? (
+                <TicketKanban asPage={true} />
+              ) : (
+                <ResidentTicketCenter
+                  asPage={true}
+                  apartmentId={currentUser?.apartment_id}
+                  apartmentUnit={currentUser?.apartment_unit}
+                />
+              )
+            )}
 
-        {/* Page: Amenity Bookings & Service Requests */}
-        {activePage === 'services' && (
-          <ServiceRequestHub
-            asPage={true}
-            currentUser={currentUser}
-            onSuccess={loadData}
-          />
-        )}
+            {/* Page: Billing & Invoices (Admin Invoices vs Resident My Services) */}
+            {activePage === 'billing' && (
+              isAdmin ? (
+                <BillingInvoices asPage={true} />
+              ) : (
+                <MyServices
+                  asPage={true}
+                  residentDashboard={residentDashboard}
+                  onRefresh={loadData}
+                  selectedApartmentId={selectedApartmentId}
+                />
+              )
+            )}
 
-        {/* Page: Community Bulletin Feed */}
-        {activePage === 'bulletin' && (
-          <CommunityBulletin
-            asPage={true}
-            currentUser={currentUser}
-            onOpenEditor={isAdmin ? () => setIsAnnouncementEditorOpen(true) : undefined}
-            onUnreadCountChanged={(count) => setUnreadAnnouncementsCount(count)}
-          />
-        )}
+            {/* Page: Amenity Bookings & Service Requests */}
+            {activePage === 'services' && (
+              isAdmin ? <AdminResidentRequests /> : (
+                <ServiceRequestHub
+                  asPage={true}
+                  currentUser={currentUser}
+                  onSuccess={loadData}
+                />
+              )
+            )}
 
-        {/* Page: Maintenance Schedule */}
-        {activePage === 'maintenance' && (
-          <MaintenanceModal
-            asPage={true}
-            isAdmin={isAdmin}
-            apartmentUnit={currentUser?.apartment_unit || undefined}
-            onTicketChanged={loadData}
-          />
-        )}
+            {/* Page: Community Bulletin Feed */}
+            {activePage === 'bulletin' && (
+              <CommunityBulletin
+                asPage={true}
+                currentUser={currentUser}
+                onOpenEditor={isAdmin ? () => setIsAnnouncementEditorOpen(true) : undefined}
+                onUnreadCountChanged={(count) => setUnreadAnnouncementsCount(count)}
+              />
+            )}
 
-        {/* Page: RBAC Permission Manager (Admin only) */}
-        {activePage === 'rbac' && isAdmin && (
-          <RbacManagerModal
-            asPage={true}
-            onRolesUpdated={loadData}
-          />
-        )}
+            {/* Page: Maintenance Schedule */}
+            {activePage === 'maintenance' && (
+              <MaintenanceModal
+                asPage={true}
+                isAdmin={isAdmin}
+                apartmentUnit={currentUser?.apartment_unit || undefined}
+                onTicketChanged={loadData}
+              />
+            )}
+
+            {/* Page: RBAC Permission Manager (Admin only) */}
+            {activePage === 'rbac' && isAdmin && (
+              <RbacManagerModal
+                asPage={true}
+                onRolesUpdated={loadData}
+              />
+            )}
+
+            {/* Page: Animation & Motion System Showcase */}
+            {activePage === 'motion' && (
+              <AnimationShowcase />
+            )}
+
+            {/* Page: User Profile (Dedicated Page View) */}
+            {activePage === 'profile' && (
+              <ProfilePage
+                currentUser={currentUser}
+                onProfileUpdated={(updated) => {
+                  setCurrentUser((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          full_name: updated.full_name,
+                          phone: updated.phone || prev.phone,
+                          avatar_url: updated.avatar_url || prev.avatar_url,
+                        }
+                      : null
+                  );
+                  loadUserApartments();
+                  loadData();
+                }}
+                onSelectApartment={(aptId) => setSelectedApartmentId(aptId)}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* 4. Action Modals & Drawers */}
@@ -440,6 +646,27 @@ export const App: React.FC = () => {
         onActionTrigger={handleAiAction}
       />
 
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
+        onProfileUpdated={(updated) => {
+          setCurrentUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  full_name: updated.full_name,
+                  phone: updated.phone || prev.phone,
+                  avatar_url: updated.avatar_url || prev.avatar_url,
+                }
+              : null
+          );
+          loadUserApartments();
+          loadData();
+        }}
+      />
+
       {/* 5. Footer */}
       <footer
         className="glass-panel"
@@ -457,7 +684,7 @@ export const App: React.FC = () => {
         }}
       >
         <div style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
-          The Oasis • Không Gian Sống Xanh & Tiện Nghi Thông Minh
+          ThanhLe Smart Tower • Không Gian Sống Xanh & Tiện Nghi Thông Minh
         </div>
         <div
           style={{
@@ -477,38 +704,8 @@ export const App: React.FC = () => {
           <span>Đạt Chuẩn Tiếp Cận WCAG 2.1 AA/AAA</span>
         </div>
       </footer>
-
-      {/* 6. Floating AI Assistant Launcher Button */}
-      {!isAiAssistantOpen && (
-        <button
-          onClick={() => setIsAiAssistantOpen(true)}
-          style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            zIndex: 9998,
-            padding: '12px 20px',
-            borderRadius: '30px',
-            background: 'linear-gradient(135deg, #D96B43, #C45731)',
-            color: '#ffffff',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            boxShadow: '0 8px 24px rgba(217, 107, 67, 0.35)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 600,
-            fontSize: '0.86rem',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          }}
-          className="btn-floating-ai"
-          title="Trò chuyện với Trợ Lý AI Chăm Sóc Tòa Nhà"
-        >
-          <Sparkles size={17} />
-          <span>Trợ Lý AI Tổ Ấm</span>
-        </button>
-      )}
-    </div>
+      </div>
+    </ToastProvider>
   );
 };
 

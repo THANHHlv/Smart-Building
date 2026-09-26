@@ -109,25 +109,34 @@ class AdminDashboardService:
 
         total_rev_sum = sum(int(r.sum_amt or 0) for r in rev_items) or 1
         service_names = {
-            "electricity": "Tiền Điện",
-            "water": "Tiền Nước",
-            "management": "Phí Quản Lý & Dịch Vụ",
-            "parking": "Phí Gửi Xe",
+            "electricity": "Tiền Điện Tiêu Thụ",
+            "water": "Tiền Nước Sinh Hoạt",
+            "management": "Phí Quản Lý Vận Hành",
+            "management_fee": "Phí Quản Lý Vận Hành",
+            "parking": "Phí Gửi Xe Tầng Hầm",
             "maintenance": "Sửa Chữa & Bảo Trì",
+            "other": "Dịch Vụ Khác",
         }
 
         revenue_by_service: list[ServiceRevenueItem] = []
         for r in rev_items:
             amt = int(r.sum_amt or 0)
-            st = str(r.service_type or "other")
+            raw_st = r.service_type
+            if hasattr(raw_st, "value"):
+                st_key = str(raw_st.value).lower().strip()
+            else:
+                st_key = str(raw_st or "other").lower().replace("servicetype.", "").strip()
+
+            s_name = service_names.get(st_key, st_key.replace("_", " ").title())
             revenue_by_service.append(
                 ServiceRevenueItem(
-                    service_type=st,
-                    service_name=service_names.get(st, st.capitalize()),
+                    service_type=st_key,
+                    service_name=s_name,
                     amount_vnd=amt,
                     percentage=round((amt / total_rev_sum) * 100, 1),
                 )
             )
+        revenue_by_service.sort(key=lambda x: x.amount_vnd, reverse=True)
 
         # 1.4 IoT Devices Health
         dev_stmt = select(

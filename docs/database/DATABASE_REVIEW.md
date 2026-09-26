@@ -28,7 +28,7 @@
 | 5 | `water_consumption.value_liters` uses `Float` | **HIGH** | `Float` | `Numeric(12, 4)` | Billing calculation precision | ✅ Fixed |
 | 6 | `invoice.total_amount` typed as `Mapped[float]` with `Numeric` column | **MEDIUM** | Type mismatch | `Mapped[Decimal]` | Preserves DB precision in Python | ✅ Fixed |
 | 7 | `MaintenanceTicket` overlaps with `Ticket` system | **MEDIUM** | Two tables | Document as legacy | Pending user confirmation | ⏳ Deferred |
-| 8 | `MaintenanceTicket.urgency/.status` use plain `String` | **MEDIUM** | No DB validation | Use Enum or CheckConstraint | No enforcement of valid values | ⏳ Deferred |
+| 8 | `MaintenanceTicket.urgency/.status` use plain `String` | **MEDIUM** | No DB validation | Use Enum or CheckConstraint | No enforcement of valid values | ✅ Fixed |
 | 9 | `Ticket.category` uses `String` but `TicketCategory` Enum exists | **MEDIUM** | Inconsistent | Use `Enum(TicketCategory)` | Consistency with other Enum columns | ✅ Fixed |
 | 10 | `users.role` duplicates RBAC system | **MEDIUM** | Dual source of truth | Remove in future migration | Documented in ADR-004 | ✅ Documented |
 | 11 | `Permission.created_at` uses deprecated `datetime.utcnow` | **HIGH** | No timezone, deprecated | `server_default=func.now()` | Python 3.12+ deprecation | ✅ Fixed |
@@ -75,8 +75,8 @@
 |----------|-------|------------|----------|
 | CRITICAL | 2 | 0 | 0 |
 | HIGH | 10 | 0 | 0 |
-| MEDIUM | 10 | 2 | 6 |
+| MEDIUM | 11 | 2 | 5 |
 | LOW | 2 | 1 | 12 |
-| **Total** | **24** | **3** | **18** |
+| **Total** | **25** | **3** | **17** |
 
 All CRITICAL and HIGH severity issues have been resolved.

@@ -111,7 +111,7 @@ export const ServiceRequestHub: React.FC<ServiceRequestHubProps> = ({
 
   // Load available slots when amenity or date changes
   useEffect(() => {
-    if (!isOpen || !selectedAmenityId || !bookingDate) return;
+    if ((!isOpen && !asPage) || !selectedAmenityId || !bookingDate) return;
     const fetchSlots = async () => {
       try {
         setLoadingSlots(true);
@@ -125,7 +125,7 @@ export const ServiceRequestHub: React.FC<ServiceRequestHubProps> = ({
       }
     };
     fetchSlots();
-  }, [isOpen, selectedAmenityId, bookingDate]);
+  }, [isOpen, asPage, selectedAmenityId, bookingDate]);
 
   // Load History
   const loadHistory = async () => {

@@ -31,3 +31,4 @@ class Apartment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # Relationships
     floor = relationship("Floor", back_populates="apartments")
     devices = relationship("Device", back_populates="apartment", lazy="selectin")
+    residents = relationship("ApartmentResident", back_populates="apartment", lazy="selectin")

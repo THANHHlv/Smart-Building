@@ -4,7 +4,12 @@ Database initialization and session management.
 Provides async SQLAlchemy engine and session factory.
 """
 
+import asyncio
 from collections.abc import AsyncGenerator
+from pathlib import Path
+import ssl
+
+import asyncpg
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -12,13 +17,76 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
+from app.core.logging import get_logger
 
 settings = get_settings()
+logger = get_logger(__name__)
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.is_development,
+def create_database_engine(config: Settings, **kwargs):
+    """Create an engine with a fresh IAM token for each new RDS connection."""
+    if config.postgres_auth_mode == "password":
+        return create_async_engine(config.database_url, **kwargs)
+    if config.postgres_auth_mode != "iam":
+        raise ValueError("POSTGRES_AUTH_MODE must be 'password' or 'iam'")
+    if not config.postgres_ssl_root_cert:
+        raise ValueError("POSTGRES_SSL_ROOT_CERT must point to a CA certificate for IAM mode")
+    ca_path = Path(config.postgres_ssl_root_cert)
+    if not ca_path.is_absolute():
+        ca_path = Path(__file__).resolve().parents[2] / ca_path
+    if not ca_path.is_file():
+        raise ValueError("POSTGRES_SSL_ROOT_CERT must point to a CA certificate for IAM mode")
+
+    ssl_context = ssl.create_default_context(cafile=str(ca_path))
+
+    async def connect_with_iam():
+        process = await asyncio.create_subprocess_exec(
+            config.aws_cli_path,
+            "rds",
+            "generate-db-auth-token",
+            "--hostname",
+            config.postgres_host,
+            "--port",
+            str(config.postgres_port),
+            "--username",
+            config.postgres_user,
+            "--region",
+            config.aws_region,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            token_bytes, _ = await asyncio.wait_for(process.communicate(), timeout=15)
+        except TimeoutError:
+            process.kill()
+            await process.communicate()
+            raise RuntimeError("IAM token generation timed out") from None
+        if process.returncode != 0 or not token_bytes:
+            raise RuntimeError("IAM token generation failed; check AWS CLI login")
+
+        for attempt in range(3):
+            try:
+                return await asyncpg.connect(
+                    host=config.postgres_host,
+                    port=config.postgres_port,
+                    user=config.postgres_user,
+                    database=config.postgres_db,
+                    password=token_bytes.decode("utf-8").strip(),
+                    ssl=ssl_context,
+                    timeout=8,
+                )
+            except (OSError, TimeoutError) as exc:
+                if attempt == 2:
+                    raise
+                logger.warning("rds_connection_retry", attempt=attempt + 1, error_type=type(exc).__name__)
+                await asyncio.sleep(0.5 * (attempt + 1))
+
+    return create_async_engine(config.database_url, async_creator=connect_with_iam, **kwargs)
+
+
+engine = create_database_engine(
+    settings,
+    echo=settings.is_development and settings.postgres_auth_mode != "iam",
     pool_size=20,
     max_overflow=10,
     pool_pre_ping=True,

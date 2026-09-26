@@ -1,5 +1,12 @@
 # Tài Liệu Kỹ Thuật: Yêu Cầu Sửa Chữa Tự Phục Vụ & Bảng Tin Chung Cư (Ưu Tiên 4)
 
+## Luồng xử lý tại máy local
+
+- Cư dân gửi yêu cầu tại **Yêu Cầu & Tiện Ích**. Yêu cầu dịch vụ tạo một `ServiceRequest` và một `Ticket` liên kết; lịch đặt tiện ích được xác nhận ngay hoặc ở trạng thái `pending` nếu tiện ích cần duyệt.
+- Admin đăng nhập và mở **Yêu Cầu Cư Dân** ở thanh điều hướng. Tab **Dịch vụ** hiển thị căn hộ, lịch mong muốn, ghi chú và tiến độ. Admin cập nhật lần lượt `open → in_progress → resolved → closed`; phiếu có kỹ thuật viên có thể tiếp tục được điều phối ở **Phiếu Việc**.
+- Tab **Đặt tiện ích** hiển thị tất cả lượt đặt. Với lượt `pending`, admin chọn **Duyệt** hoặc **Từ chối**. Trạng thái mới hiện trong lịch sử của cư dân khi tải lại.
+- Danh sách quản trị dùng `GET /api/v1/admin/service-requests` và `GET /api/v1/admin/amenity-bookings`; duyệt lịch dùng `PATCH /api/v1/admin/amenity-bookings/{id}`. Các endpoint này yêu cầu quyền admin và giới hạn mặc định 100 bản ghi mới nhất.
+
 Tài liệu mô tả chi tiết kiến trúc, mô hình dữ liệu, cơ chế chống xung đột đặt lịch (double-booking), tích hợp thông báo khẩn cấp và giao diện người dùng cho phân hệ **Self-Service Requests & Community Bulletin Board** thuộc dự án **Smart Building Cloud Platform**.
 
 ---

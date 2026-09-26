@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
 /* ==========================================================================
    SMART BUILDING CLOUD PLATFORM - DESIGN SYSTEM (MASTER TOKENS)
    Warm Human Residential & Biophilic Architecture (WCAG AA/AAA Compliant)
    ========================================================================== */
-
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
   /* Color Palette - Warm Human Living Theme */
@@ -76,10 +77,17 @@
   --shadow-glow-rose: 0 4px 20px rgba(200, 82, 82, 0.2);
   --shadow-glow-emerald: 0 4px 20px rgba(74, 124, 89, 0.2);
 
-  /* Transition speeds */
+  /* Transition speeds & Motion Tokens */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Master Motion Tokens */
+  --duration-micro: 180ms;
+  --duration-page: 350ms;
+  --duration-data: 650ms;
+  --ease-natural: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* ==========================================================================
@@ -1113,3 +1121,72 @@ body {
   background: rgba(255, 255, 255, 0.03) !important;
 }
 
+/* ==========================================================================
+   Motion System: Warm Shimmer, Pulse, and Micro-interactions
+   ========================================================================== */
+
+@keyframes shimmerWarm {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-warm {
+  background: linear-gradient(
+    90deg,
+    #F3EEE5 0%,
+    #FAF8F4 50%,
+    #F3EEE5 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWarm 1.8s ease-in-out infinite;
+}
+
+.interactive-btn {
+  transition: transform var(--duration-micro) var(--ease-natural),
+              box-shadow var(--duration-micro) var(--ease-natural),
+              background-color var(--duration-micro) var(--ease-natural);
+}
+
+.interactive-btn:hover {
+  transform: translateY(-1px);
+}
+
+.interactive-btn:active {
+  transform: scale(0.97);
+}
+
+/* Focus Ring Accent with zero layout shift */
+.focus-ring-accent:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent-terracotta);
+  transition: box-shadow var(--duration-micro) var(--ease-natural);
+}
+
+/* Single Pulse Accent */
+@keyframes singlePulseOnce {
+  0% {
+    transform: scale(0.99);
+    box-shadow: 0 0 0 0 rgba(200, 82, 82, 0.4);
+  }
+  70% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 10px rgba(200, 82, 82, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(200, 82, 82, 0);
+  }
+}
+
+.pulse-once {
+  animation: singlePulseOnce 0.85s var(--ease-natural) 1;
+}
+
+.admin-requests-action:focus-visible {
+  outline: 2px solid #2D2825;
+  outline-offset: 3px;
+}

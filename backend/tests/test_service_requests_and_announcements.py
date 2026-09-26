@@ -152,6 +152,87 @@ async def test_create_and_list_service_request(client: AsyncClient, service_env)
         assert ticket.category == "cleaning"
 
 
+@pytest.mark.asyncio
+async def test_admin_can_view_and_process_resident_service_request(client: AsyncClient, service_env):
+    tokens = service_env["tokens"]
+    resident_headers = {"Authorization": f"Bearer {tokens['res1']}"}
+    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    created = await client.post(
+        "/api/v1/service-requests",
+        json={
+            "request_type": "access_card",
+            "title": "Cấp lại thẻ căn 401",
+            "description": "Thẻ ra vào bị hỏng, xin cấp lại một thẻ.",
+            "notes": {"quantity": 1},
+        },
+        headers=resident_headers,
+    )
+    assert created.status_code == 201, created.text
+    request = created.json()
+
+    denied = await client.get("/api/v1/admin/service-requests", headers=resident_headers)
+    assert denied.status_code == 403
+    queue = await client.get("/api/v1/admin/service-requests", headers=admin_headers)
+    assert queue.status_code == 200, queue.text
+    assert any(item["id"] == request["id"] and item["apartment_unit"] == "401" for item in queue.json())
+
+    updated = await client.patch(
+        f"/api/v1/tickets/{request['ticket_id']}/status",
+        json={"status": "in_progress"},
+        headers=admin_headers,
+    )
+    assert updated.status_code == 200, updated.text
+    refreshed = await client.get("/api/v1/me/service-requests", headers=resident_headers)
+    assert next(item for item in refreshed.json() if item["id"] == request["id"])["ticket_status"] == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_admin_reviews_pending_amenity_booking(client: AsyncClient, service_env):
+    tokens = service_env["tokens"]
+    resident_headers = {"Authorization": f"Bearer {tokens['res1']}"}
+    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
+    amenity = service_env["amenity"]
+    async with testing_session_factory() as session:
+        db_amenity = (await session.execute(select(Amenity).where(Amenity.id == amenity.id))).scalar_one()
+        db_amenity.requires_approval = True
+        await session.commit()
+
+    created = await client.post(
+        f"/api/v1/amenities/{amenity.id}/bookings",
+        json={"booking_date": "2026-11-20", "time_slot": "08:00 - 10:00"},
+        headers=resident_headers,
+    )
+    assert created.status_code == 201, created.text
+    booking = created.json()
+    assert booking["status"] == "pending"
+
+    denied = await client.get("/api/v1/admin/amenity-bookings", headers=resident_headers)
+    assert denied.status_code == 403
+    queue = await client.get("/api/v1/admin/amenity-bookings", headers=admin_headers)
+    assert queue.status_code == 200, queue.text
+    assert any(item["id"] == booking["id"] for item in queue.json())
+
+    rejected = await client.patch(
+        f"/api/v1/admin/amenity-bookings/{booking['id']}",
+        json={"decision": "confirmed"},
+        headers=resident_headers,
+    )
+    assert rejected.status_code == 403
+    approved = await client.patch(
+        f"/api/v1/admin/amenity-bookings/{booking['id']}",
+        json={"decision": "confirmed"},
+        headers=admin_headers,
+    )
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "confirmed"
+    repeat = await client.patch(
+        f"/api/v1/admin/amenity-bookings/{booking['id']}",
+        json={"decision": "cancelled"},
+        headers=admin_headers,
+    )
+    assert repeat.status_code == 409
+
+
 # -----------------------------------------------------------------------------
 # 2. Amenity Slots & Double-Booking Concurrency Protection Test
 # -----------------------------------------------------------------------------

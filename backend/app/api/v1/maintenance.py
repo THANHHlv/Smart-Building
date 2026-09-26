@@ -68,7 +68,7 @@ async def create_maintenance_ticket(
     await db.refresh(ticket)
 
     apt_unit = apartment.unit_number
-    bld_name = apartment.floor.building.name if apartment.floor and apartment.floor.building else "Skyline Tower"
+    bld_name = apartment.floor.building.name if apartment.floor and apartment.floor.building else "ThanhLe Smart Tower"
 
     return MaintenanceTicketResponse(
         id=ticket.id,

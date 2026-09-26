@@ -448,8 +448,13 @@ class BulkJobService:
 
                 notif_service = NotificationService(session)
                 processed = 0
-                failed = 0
-                errors: list[dict[str, Any]] = []
+                found_ids = {mc.id for mc in confirmations}
+                missing_ids = set(confirmation_ids) - found_ids
+                failed = len(missing_ids)
+                errors: list[dict[str, Any]] = [
+                    {"confirmation_id": str(missing_id), "error": "Confirmation not found"}
+                    for missing_id in missing_ids
+                ]
                 now = datetime.datetime.now(datetime.timezone.utc)
 
                 for mc in confirmations:
@@ -457,6 +462,11 @@ class BulkJobService:
                         # Idempotency: skip if already approved
                         if mc.status == ManualConfirmationStatus.APPROVED:
                             processed += 1
+                            continue
+
+                        if mc.status != ManualConfirmationStatus.PENDING or not mc.invoice or mc.invoice.status not in (InvoiceStatus.PENDING, InvoiceStatus.OVERDUE):
+                            failed += 1
+                            errors.append({"confirmation_id": str(mc.id), "error": "Confirmation or invoice is no longer payable"})
                             continue
 
                         mc.status = ManualConfirmationStatus.APPROVED
@@ -504,7 +514,7 @@ class BulkJobService:
                     update(BulkJob)
                     .where(BulkJob.id == job_id)
                     .values(
-                        status="completed" if failed == 0 else "completed",
+                        status="completed" if failed == 0 else "failed",
                         processed_items=processed,
                         failed_items=failed,
                         error_summary=errors,

@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   Receipt, Zap, Droplets, Building2, Car, Wrench, Package, X, ChevronRight,
-  Clock, CheckCircle2, AlertCircle, CreditCard, Layers, DollarSign,
+  Clock, CheckCircle2, Layers, DollarSign,
   FileSpreadsheet, CheckSquare, Square, Loader2, Send
 } from 'lucide-react';
 import { api } from '../services/api';
-import type { BulkJob, InvoiceDetail, InvoiceListItem } from '../types';
+import type { BulkJob, InvoiceDetail, InvoiceListItem, PendingManualConfirmation } from '../types';
 import { ReportExportModal } from './ReportExportModal';
 import { BillingRateModal } from './BillingRateModal';
+import { createStaggerContainer, staggerItemVariants, MOTION_SPRINGS } from '../tokens/motionTokens';
+import { WarmSkeletonCard } from './ui/WarmSkeleton';
+import { WarmEmptyState } from './ui/WarmEmptyState';
+import { SmoothProgressBar } from './ui/SmoothProgressBar';
 
 /* ─── SERVICE TYPE → ICON + LABEL MAP ─── */
 const SERVICE_META: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -53,8 +58,8 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
   const [invoices, setInvoices] = useState<InvoiceListItem[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
-  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [pendingConfirmations, setPendingConfirmations] = useState<PendingManualConfirmation[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   /* Bulk operations & modals state */
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -76,6 +81,37 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
       setIsLoading(false);
     }
   }, []);
+
+  const loadPendingConfirmations = useCallback(async () => {
+    try {
+      setPendingConfirmations(await api.getPendingManualConfirmations());
+    } catch (err) {
+      console.error('Failed to load pending payment confirmations:', err);
+    }
+  }, []);
+
+  const approveManualConfirmation = async (confirmation: PendingManualConfirmation) => {
+    if (!window.confirm(`Bạn đã đối soát giao dịch ngân hàng cho hóa đơn ${confirmation.invoice_number} (${formatVND(confirmation.amount)})?`)) return;
+    setApprovingId(confirmation.id);
+    setActionFeedback('Đang ghi nhận kết quả đối soát...');
+    try {
+      const job = await api.approveBulkManualConfirmations({ confirmation_ids: [confirmation.id] });
+      let result = job;
+      for (let attempt = 0; attempt < 20 && (result.status === 'pending' || result.status === 'processing'); attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        result = await api.getBulkJobStatus(job.id);
+      }
+      if (result.status !== 'completed' || result.failed_items > 0 || result.processed_items !== 1) {
+        throw new Error('Không thể xác nhận thanh toán. Vui lòng kiểm tra lại trạng thái hóa đơn.');
+      }
+      setActionFeedback(`Đã xác nhận thanh toán hóa đơn ${confirmation.invoice_number}.`);
+      await Promise.all([loadInvoices(), loadPendingConfirmations()]);
+    } catch (err: any) {
+      setActionFeedback(err.message || 'Đối soát thanh toán thất bại.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   /* Toggle selection of a single invoice */
   const handleToggleSelect = (id: string, e: React.MouseEvent) => {
@@ -158,10 +194,10 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
   useEffect(() => {
     if (isOpen || asPage) {
       loadInvoices();
+      loadPendingConfirmations();
       setSelectedInvoice(null);
-      setPaymentMessage(null);
     }
-  }, [isOpen, asPage, loadInvoices]);
+  }, [isOpen, asPage, loadInvoices, loadPendingConfirmations]);
 
   if (!isOpen && !asPage) return null;
 
@@ -175,26 +211,6 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
       console.error('Failed to load invoice detail:', err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  /* Pay invoice */
-  const handlePay = async () => {
-    if (!selectedInvoice) return;
-    setIsPaying(true);
-    setPaymentMessage(null);
-    try {
-      const idempotencyKey = crypto.randomUUID();
-      const result = await api.payInvoice(selectedInvoice.id, idempotencyKey);
-      // Redirect to payment gateway
-      if (result.payment_url) {
-        setPaymentMessage('Đang chuyển đến cổng thanh toán...');
-        window.open(result.payment_url, '_blank');
-      }
-    } catch (err: any) {
-      setPaymentMessage(err.message || 'Thanh toán thất bại. Vui lòng thử lại.');
-    } finally {
-      setIsPaying(false);
     }
   };
 
@@ -310,8 +326,7 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                 cursor: 'pointer', fontFamily: 'var(--font-sans)',
                 fontSize: '0.82rem', fontWeight: activeTab === tab.key ? 600 : 400,
                 color: activeTab === tab.key ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                borderBottom: activeTab === tab.key ? '2px solid var(--accent-cyan)' : '2px solid transparent',
-                transition: 'all var(--transition-fast)',
+                position: 'relative',
               }}
             >
               {tab.label}
@@ -324,6 +339,21 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                 }}>
                   {tab.count}
                 </span>
+              )}
+              {activeTab === tab.key && (
+                <motion.div
+                  layoutId="billingTabIndicator"
+                  transition={MOTION_SPRINGS.snappy}
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: '10%',
+                    right: '10%',
+                    height: '2.5px',
+                    backgroundColor: 'var(--accent-cyan)',
+                    borderRadius: '3px 3px 0 0',
+                  }}
+                />
               )}
             </button>
           ))}
@@ -412,6 +442,37 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
           </button>
         </div>
 
+        <section aria-labelledby="manual-confirmations-heading" style={{ margin: '16px 24px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+            <h3 id="manual-confirmations-heading" style={{ margin: '0 0 8px', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+              Chuyển khoản chờ đối soát ({pendingConfirmations.length})
+            </h3>
+            <button type="button" onClick={loadPendingConfirmations} className="focus-visible:ring-2"
+              style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-elevated)', color: 'var(--text-primary)', padding: '6px 10px', cursor: 'pointer' }}>
+              Tải lại
+            </button>
+          </div>
+          <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+            Kiểm tra số tiền và mã giao dịch trên sao kê ngân hàng trước khi xác nhận.
+          </p>
+          {pendingConfirmations.length === 0 && <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem' }}>Không có giao dịch chờ đối soát.</p>}
+          {pendingConfirmations.map(confirmation => (
+            <article key={confirmation.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '12px 0', borderTop: '1px solid var(--border-subtle)' }}>
+              <div>
+                <strong style={{ color: 'var(--text-primary)' }}>{confirmation.invoice_number} · {formatVND(confirmation.amount)}</strong>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.8rem', overflowWrap: 'anywhere' }}>
+                  {confirmation.note || 'Không có mã giao dịch'}
+                </p>
+              </div>
+              <button type="button" onClick={() => approveManualConfirmation(confirmation)} disabled={approvingId !== null}
+                className="focus-visible:ring-2"
+                style={{ border: 0, borderRadius: 'var(--radius-sm)', background: 'var(--accent-emerald)', color: '#fff', padding: '9px 14px', cursor: approvingId ? 'wait' : 'pointer' }}>
+                {approvingId === confirmation.id ? 'Đang xác nhận...' : 'Đã đối soát, xác nhận'}
+              </button>
+            </article>
+          ))}
+        </section>
+
         {/* ─── Active Bulk Job Tracker Banner ─── */}
         {activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing') && (
           <div style={{
@@ -435,18 +496,11 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                 {activeJob.processed_items} / {activeJob.total_items || '—'}
               </span>
             </div>
-            <div style={{
-              width: '100%', height: '6px', backgroundColor: 'var(--border-subtle)',
-              borderRadius: '3px', overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%',
-                width: `${activeJob.total_items ? Math.round((activeJob.processed_items / activeJob.total_items) * 100) : 45}%`,
-                backgroundColor: 'var(--accent-emerald)',
-                borderRadius: '3px',
-                transition: 'width 0.3s ease',
-              }} />
-            </div>
+            <SmoothProgressBar
+              progress={activeJob.total_items ? Math.round((activeJob.processed_items / activeJob.total_items) * 100) : 45}
+              color="var(--accent-emerald)"
+              height={6}
+            />
           </div>
         )}
 
@@ -458,8 +512,8 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
             borderRadius: 'var(--radius-sm)',
             backgroundColor: 'rgba(217, 107, 67, 0.1)',
             border: '1px solid rgba(217, 107, 67, 0.25)',
-            fontSize: '0.78rem',
-            color: 'var(--text-primary)',
+            fontSize: '0.82rem',
+            color: '#D96B43',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -477,10 +531,7 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
         {/* ─── Content Area ─── */}
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
           {isLoading && !selectedInvoice ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-              <div className="auth-loading-spinner" style={{ width: 28, height: 28, borderWidth: 2, margin: '0 auto 12px' }} />
-              <p style={{ fontSize: '0.82rem' }}>Đang tải hoá đơn...</p>
-            </div>
+            <WarmSkeletonCard count={3} />
           ) : selectedInvoice ? (
             /* ─── Invoice Detail View ─── */
             <div>
@@ -612,71 +663,22 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                 })}
               </div>
 
-              {/* Payment message */}
-              {paymentMessage && (
-                <div style={{
-                  padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(184, 115, 25, 0.08)', border: '1px solid var(--border-amber)',
-                  fontSize: '0.82rem', color: 'var(--accent-amber)',
-                  marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px',
-                }}>
-                  <AlertCircle size={14} />
-                  {paymentMessage}
-                </div>
-              )}
-
-              {/* Pay button */}
-              {(selectedInvoice.status === 'pending' || selectedInvoice.status === 'overdue') && (
-                <button
-                  onClick={handlePay}
-                  disabled={isPaying}
-                  style={{
-                    width: '100%', padding: '14px',
-                    borderRadius: 'var(--radius-sm)', border: 'none',
-                    background: isPaying
-                      ? 'var(--bg-elevated)'
-                      : 'linear-gradient(135deg, #D96B43, #C45731)',
-                    color: isPaying ? 'var(--text-muted)' : '#ffffff',
-                    fontFamily: 'var(--font-sans)', fontSize: '0.9rem', fontWeight: 600,
-                    cursor: isPaying ? 'not-allowed' : 'pointer',
-                    boxShadow: isPaying ? 'none' : '0 4px 16px rgba(217, 107, 67, 0.3)',
-                    transition: 'all var(--transition-fast)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  }}
-                >
-                  <CreditCard size={18} />
-                  {isPaying ? 'Đang xử lý...' : 'Thanh toán ngay'}
-                </button>
-              )}
             </div>
           ) : (
             /* ─── Invoice List View ─── */
             <div>
               {activeTab === 'current' && currentInvoices.length === 0 && (
-                <div style={{
-                  textAlign: 'center', padding: '48px 20px',
-                  color: 'var(--text-muted)',
-                }}>
-                  <CheckCircle2 size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
-                  <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)', margin: '0 0 6px' }}>
-                    Không có hoá đơn chờ thanh toán
-                  </p>
-                  <p style={{ fontSize: '0.78rem' }}>
-                    Tuyệt vời! Tất cả hoá đơn của bạn đã được thanh toán đầy đủ 🎉
-                  </p>
-                </div>
+                <WarmEmptyState
+                  title="Không có hoá đơn chờ thanh toán"
+                  description="Tuyệt vời! Tất cả hoá đơn dịch vụ của bạn đã được thanh toán hoặc quyết toán đầy đủ 🎉"
+                />
               )}
 
               {activeTab === 'history' && historyInvoices.length === 0 && (
-                <div style={{
-                  textAlign: 'center', padding: '48px 20px',
-                  color: 'var(--text-muted)',
-                }}>
-                  <Receipt size={36} style={{ marginBottom: '12px', opacity: 0.4 }} />
-                  <p style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                    Chưa có lịch sử thanh toán
-                  </p>
-                </div>
+                <WarmEmptyState
+                  title="Chưa có lịch sử thanh toán"
+                  description="Các hoá đơn đã hoàn tất thanh toán sẽ được lưu trữ và xuất biên lai chi tiết tại đây."
+                />
               )}
 
               {/* ─── Select All & Counter Bar ─── */}
@@ -720,14 +722,22 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                 </div>
               )}
 
+              <motion.div
+                variants={createStaggerContainer(0.04)}
+                initial="hidden"
+                animate="visible"
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+              >
               {(activeTab === 'current' ? currentInvoices : historyInvoices).map(inv => {
                 const badge = STATUS_BADGE[inv.status] || STATUS_BADGE.draft;
                 const monthStr = new Date(inv.created_at).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
                 const isSelected = selectedIds.includes(inv.id);
 
                 return (
-                  <div
+                  <motion.div
                     key={inv.id}
+                    variants={staggerItemVariants}
+                    whileHover={{ y: -2, transition: { duration: 0.15 } }}
                     onClick={() => openInvoiceDetail(inv.id)}
                     style={{
                       width: '100%',
@@ -736,13 +746,12 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                       border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-sm)',
                       padding: '14px 16px',
-                      marginBottom: '8px',
                       cursor: 'pointer',
-                      transition: 'all var(--transition-fast)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '12px',
                       fontFamily: 'var(--font-sans)',
+                      boxShadow: '0 2px 6px rgba(45, 40, 37, 0.02)',
                     }}
                     className="invoice-list-item"
                   >
@@ -793,9 +802,10 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
                       </span>
                       <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
+              </motion.div>
             </div>
           )}
         </div>

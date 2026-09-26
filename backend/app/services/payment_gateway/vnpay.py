@@ -9,7 +9,8 @@ Reference: https://sandbox.vnpayment.vn/apis/
 import hashlib
 import hmac
 import urllib.parse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -78,7 +79,7 @@ class VNPayGateway(PaymentGatewayBase):
             )
             return mock_url
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
         params = {
             "vnp_Version": "2.1.0",
             "vnp_Command": "pay",
@@ -86,12 +87,13 @@ class VNPayGateway(PaymentGatewayBase):
             "vnp_Amount": str(int(amount * 100)),  # VNPay uses amount × 100
             "vnp_CurrCode": "VND",
             "vnp_TxnRef": transaction_id,
-            "vnp_OrderInfo": description[:255],  # Max 255 chars
+            "vnp_OrderInfo": description.encode("ascii", "ignore").decode("ascii")[:255],
             "vnp_OrderType": "billpayment",
             "vnp_Locale": "vn",
             "vnp_ReturnUrl": return_url or self._return_url,
             "vnp_IpAddr": ip_address,
             "vnp_CreateDate": now.strftime("%Y%m%d%H%M%S"),
+            "vnp_ExpireDate": (now + timedelta(minutes=15)).strftime("%Y%m%d%H%M%S"),
         }
 
         # Sort params alphabetically and create query string
@@ -122,8 +124,8 @@ class VNPayGateway(PaymentGatewayBase):
         This MUST be called before processing any webhook data.
         """
         if self._is_mock:
-            logger.info("vnpay_mock_signature_verification_skipped")
-            return True
+            logger.warning("vnpay_mock_webhook_rejected")
+            return False
 
         if not signature or not self._hash_secret:
             logger.warning("vnpay_signature_verification_failed_empty_inputs")
@@ -160,6 +162,8 @@ class VNPayGateway(PaymentGatewayBase):
         """Parse VNPay IPN/return payload into internal WebhookResult."""
         response_code = raw_payload.get("vnp_ResponseCode", "99")
         status = _VNPAY_STATUS_MAP.get(response_code, "failed")
+        if status == "success" and raw_payload.get("vnp_TransactionStatus") != "00":
+            status = "failed"
 
         # Extract amount (VNPay sends amount × 100)
         raw_amount = raw_payload.get("vnp_Amount", "0")

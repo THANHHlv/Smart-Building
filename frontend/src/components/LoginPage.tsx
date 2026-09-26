@@ -62,7 +62,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       <div className="auth-container">
         {/* Cột Trái — Nhận Diện Tổ Ấm Thông Minh */}
-        <section className="auth-brand-panel" aria-label="Giới thiệu The Oasis">
+        <section className="auth-brand-panel" aria-label="Giới thiệu ThanhLe Smart Tower">
           <div className="auth-brand-content">
             <div className="auth-logo-wrapper">
               <div className="auth-logo" aria-hidden="true">
@@ -72,8 +72,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
 
             <div>
-              <h1 className="auth-brand-title">THE OASIS</h1>
-              <p className="auth-brand-subtitle">Smart Living Sanctuary</p>
+              <h1 className="auth-brand-title">THANHLE SMART TOWER</h1>
+              <p className="auth-brand-subtitle">Smart Living & IoT Sanctuary</p>
             </div>
 
             <div className="auth-brand-features">
@@ -110,7 +110,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <header className="auth-form-header">
               <h2 className="auth-form-title">
-                {isRegisterMode ? 'Gia Nhập The Oasis' : 'Chào Mừng Bạn Về Nhà'}
+                {isRegisterMode ? 'Gia Nhập ThanhLe Smart Tower' : 'Chào Mừng Bạn Về Nhà'}
               </h2>
               <p className="auth-form-desc">
                 {isRegisterMode
@@ -266,7 +266,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="button"
                     onClick={() => {
                       setEmail('admin@smartbuilding.io');
-                      setPassword('admin123');
+                      setPassword('123456');
                     }}
                     style={{
                       flex: 1,
@@ -292,7 +292,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="button"
                     onClick={() => {
                       setEmail('resident.apt301@smartbuilding.io');
-                      setPassword('resident123');
+                      setPassword('123456');
                     }}
                     style={{
                       flex: 1,

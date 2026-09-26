@@ -150,37 +150,49 @@ class ServiceRequestService:
         result = await self.session.execute(stmt)
         requests = result.scalars().all()
 
-        items: list[ServiceRequestResponse] = []
-        for r in requests:
-            t = r.ticket
-            apt_unit = t.apartment.unit_number if t and t.apartment else None
-            tech_name = (
-                t.technician.user.full_name
-                if t and t.technician and t.technician.user
-                else None
-            )
+        return [self._service_request_response(r) for r in requests]
 
-            items.append(
-                ServiceRequestResponse(
-                    id=r.id,
-                    ticket_id=r.ticket_id,
-                    request_type=r.request_type,
-                    scheduled_at=r.scheduled_at,
-                    scheduled_slot=r.scheduled_slot,
-                    notes=r.notes,
-                    created_at=r.created_at,
-                    updated_at=r.updated_at,
-                    ticket_status=t.status.value if t else "open",
-                    ticket_title=t.title if t else "",
-                    ticket_description=t.description if t else "",
-                    ticket_priority=t.priority.value if t else "medium",
-                    apartment_unit=apt_unit,
-                    technician_name=tech_name,
-                    rating=t.rating if t else None,
-                    rating_comment=t.rating_comment if t else None,
-                )
+    async def list_admin_service_requests(self, limit: int = 100) -> list[ServiceRequestResponse]:
+        """Show the resident service queue to building management."""
+        stmt = (
+            select(ServiceRequest)
+            .options(
+                selectinload(ServiceRequest.ticket).selectinload(Ticket.apartment),
+                selectinload(ServiceRequest.ticket).selectinload(Ticket.technician).selectinload(Technician.user),
             )
-        return items
+            .order_by(ServiceRequest.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [self._service_request_response(r) for r in result.scalars().all()]
+
+    @staticmethod
+    def _service_request_response(r: ServiceRequest) -> ServiceRequestResponse:
+        t = r.ticket
+        apt_unit = t.apartment.unit_number if t and t.apartment else None
+        tech_name = (
+            t.technician.user.full_name
+            if t and t.technician and t.technician.user
+            else None
+        )
+        return ServiceRequestResponse(
+            id=r.id,
+            ticket_id=r.ticket_id,
+            request_type=r.request_type,
+            scheduled_at=r.scheduled_at,
+            scheduled_slot=r.scheduled_slot,
+            notes=r.notes,
+            created_at=r.created_at,
+            updated_at=r.updated_at,
+            ticket_status=t.status.value if t else "open",
+            ticket_title=t.title if t else "",
+            ticket_description=t.description if t else "",
+            ticket_priority=t.priority.value if t else "medium",
+            apartment_unit=apt_unit,
+            technician_name=tech_name,
+            rating=t.rating if t else None,
+            rating_comment=t.rating_comment if t else None,
+        )
 
     # -------------------------------------------------------------------------
     # Part A.2: Community Amenities & Slot Bookings
@@ -412,3 +424,71 @@ class ServiceRequestService:
             )
             for b in bookings
         ]
+
+    async def list_admin_amenity_bookings(self, limit: int = 100) -> list[AmenityBookingResponse]:
+        stmt = (
+            select(AmenityBooking)
+            .options(
+                selectinload(AmenityBooking.amenity),
+                selectinload(AmenityBooking.apartment),
+                selectinload(AmenityBooking.user),
+            )
+            .order_by(AmenityBooking.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return [
+            AmenityBookingResponse(
+                id=b.id,
+                amenity_id=b.amenity_id,
+                amenity_name=b.amenity.name,
+                apartment_id=b.apartment_id,
+                apartment_unit=b.apartment.unit_number if b.apartment else None,
+                user_id=b.user_id,
+                user_name=b.user.full_name if b.user else None,
+                booking_date=b.booking_date,
+                time_slot=b.time_slot,
+                status=b.status,
+                notes=b.notes,
+                created_at=b.created_at,
+            )
+            for b in result.scalars().all()
+        ]
+
+    async def review_amenity_booking(
+        self, booking_id: uuid.UUID, decision: str
+    ) -> AmenityBookingResponse:
+        booking = (
+            await self.session.execute(
+                select(AmenityBooking)
+                .options(
+                    selectinload(AmenityBooking.amenity),
+                    selectinload(AmenityBooking.apartment),
+                    selectinload(AmenityBooking.user),
+                )
+                .where(AmenityBooking.id == booking_id)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Không tìm thấy lịch đặt tiện ích.")
+        if booking.status != "pending":
+            raise HTTPException(status_code=409, detail="Lịch đặt này đã được xử lý.")
+        if decision not in ("confirmed", "cancelled"):
+            raise HTTPException(status_code=422, detail="Trạng thái duyệt không hợp lệ.")
+        booking.status = decision
+        await self.session.commit()
+        return AmenityBookingResponse(
+            id=booking.id,
+            amenity_id=booking.amenity_id,
+            amenity_name=booking.amenity.name,
+            apartment_id=booking.apartment_id,
+            apartment_unit=booking.apartment.unit_number if booking.apartment else None,
+            user_id=booking.user_id,
+            user_name=booking.user.full_name if booking.user else None,
+            booking_date=booking.booking_date,
+            time_slot=booking.time_slot,
+            status=booking.status,
+            notes=booking.notes,
+            created_at=booking.created_at,
+        )

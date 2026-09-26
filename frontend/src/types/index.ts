@@ -85,7 +85,102 @@ export interface UserProfile {
   apartment_id: string | null;
   apartment_unit: string | null;
   building_name: string | null;
+  avatar_url?: string | null;
+  phone?: string | null;
   is_active: boolean;
+  is_verified?: boolean;
+}
+
+export interface UserProfileDetails {
+  id: string;
+  user_id: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  full_name: string | null;
+  date_of_birth: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  avatar_url: string | null;
+  national_id_masked: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  is_active: boolean;
+  is_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ResidentApartment {
+  id: string;
+  apartment_id: string;
+  unit_number: string;
+  floor_number: number;
+  building_id: string;
+  building_name: string;
+  building_address: string | null;
+  relationship: 'owner' | 'tenant' | 'family_member' | 'other';
+  is_primary_contact: boolean;
+  status: 'active' | 'moved_out';
+  moved_in_at: string;
+  moved_out_at: string | null;
+}
+
+export interface AdminResidentItem {
+  id: string;
+  apartment_id: string;
+  unit_number: string;
+  floor_number: number;
+  building_id: string;
+  building_name: string;
+  user_id: string;
+  resident_name: string;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+  relationship: 'owner' | 'tenant' | 'family_member' | 'other';
+  is_primary_contact: boolean;
+  status: 'active' | 'moved_out';
+  moved_in_at: string;
+  moved_out_at: string | null;
+}
+
+export interface TechnicianProfileItem {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+  specialties: string[];
+  certification_info: string | null;
+  active_building_ids: string[];
+  is_active: boolean;
+}
+
+export interface UpdateProfilePayload {
+  full_name?: string;
+  phone?: string;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | 'other';
+  national_id?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+}
+
+export interface AdminCreateResidentPayload {
+  apartment_id: string;
+  user_id?: string;
+  email?: string;
+  full_name?: string;
+  phone?: string;
+  relationship: 'owner' | 'tenant' | 'family_member' | 'other';
+  is_primary_contact: boolean;
+}
+
+export interface AdminUpdateResidentPayload {
+  relationship?: 'owner' | 'tenant' | 'family_member' | 'other';
+  is_primary_contact?: boolean;
+  status?: 'active' | 'moved_out';
 }
 
 export interface DemoAccount {
@@ -284,6 +379,24 @@ export interface PayInvoiceResponse {
   transaction_id: string;
   payment_url: string;
   provider: string;
+}
+
+export interface PaymentOptions {
+  online_enabled: boolean;
+  bank_name: string | null;
+  bank_account: string | null;
+  bank_account_name: string | null;
+}
+
+export interface PendingManualConfirmation {
+  id: string;
+  invoice_id: string;
+  invoice_number: string;
+  apartment_id: string;
+  amount: number;
+  method: string;
+  note: string | null;
+  submitted_at: string;
 }
 
 export interface PaymentMethod {
@@ -737,4 +850,3 @@ export interface BillingRate {
   effective_date: string;
   created_at: string;
 }
-

@@ -54,6 +54,11 @@ class TicketCategory(str, enum.Enum):
     SECURITY = "security"
     FIRE_SAFETY = "fire_safety"
     GENERAL = "general"
+    CLEANING = "cleaning"
+    PERIODIC_MAINTENANCE = "periodic_maintenance"
+    VEHICLE_REGISTRATION = "vehicle_registration"
+    ACCESS_CARD = "access_card"
+    OTHER = "other"
 
 
 class Technician(Base, UUIDPrimaryKeyMixin, TimestampMixin):
