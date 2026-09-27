@@ -472,18 +472,19 @@ async def test_rule_2_2_partial_payment_strict_rejection(client: AsyncClient, au
         import urllib.parse
 
         def _sign(gw, p):
-            if gw._is_mock:
-                return "mock_sig_ok"
-            sec = gw._hash_secret or "mock_secret"
             cp = {k: v for k, v in p.items() if k not in ("vnp_SecureHash", "vnp_SecureHashType")}
             qs = urllib.parse.urlencode(sorted(cp.items()))
-            return hmac.new(sec.encode("utf-8"), qs.encode("utf-8"), hashlib.sha512).hexdigest()
+            return hmac.new(gw._hash_secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha512).hexdigest()
 
         service = PaymentService(session)
+        service.gateway._is_mock = False
+        service.gateway._hash_secret = "test-only-signing-secret"
         # Simulate gateway callback with only 500,000 VND (partial payment attempt)
         webhook_payload = {
             "vnp_TxnRef": str(txn.id),
             "vnp_ResponseCode": "00",
+            "vnp_TransactionStatus": "00",
+            "vnp_TmnCode": service.gateway._tmn_code,
             "vnp_Amount": "50000000",  # 500,000 * 100
         }
         webhook_payload["vnp_SecureHash"] = _sign(service.gateway, webhook_payload)
@@ -511,12 +512,9 @@ async def test_rule_2_3_webhook_idempotency_replay_safe(audit_fixtures):
         import urllib.parse
 
         def _sign(gw, p):
-            if gw._is_mock:
-                return "mock_sig_ok"
-            sec = gw._hash_secret or "mock_secret"
             cp = {k: v for k, v in p.items() if k not in ("vnp_SecureHash", "vnp_SecureHashType")}
             qs = urllib.parse.urlencode(sorted(cp.items()))
-            return hmac.new(sec.encode("utf-8"), qs.encode("utf-8"), hashlib.sha512).hexdigest()
+            return hmac.new(gw._hash_secret.encode("utf-8"), qs.encode("utf-8"), hashlib.sha512).hexdigest()
 
         cycle = BillingCycle(
             apartment_id=data["apt_a"].id,
@@ -551,9 +549,13 @@ async def test_rule_2_3_webhook_idempotency_replay_safe(audit_fixtures):
         await session.commit()
 
         service = PaymentService(session)
+        service.gateway._is_mock = False
+        service.gateway._hash_secret = "test-only-signing-secret"
         payload = {
             "vnp_TxnRef": str(txn.id),
             "vnp_ResponseCode": "00",
+            "vnp_TransactionStatus": "00",
+            "vnp_TmnCode": service.gateway._tmn_code,
             "vnp_Amount": "50000000",
         }
         payload["vnp_SecureHash"] = _sign(service.gateway, payload)

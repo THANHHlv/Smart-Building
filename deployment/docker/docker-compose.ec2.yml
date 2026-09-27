@@ -1,0 +1,47 @@
+# EC2 deployment using Aurora PostgreSQL. Bind the web service to loopback until HTTPS is configured.
+# Run from the repository root with: docker compose --env-file .env.production \
+#   -f deployment/docker/docker-compose.ec2.yml up -d
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: ${DOCKERHUB_REPOSITORY:?Set DOCKERHUB_REPOSITORY}:backend-${IMAGE_TAG:?Set IMAGE_TAG}
+    env_file:
+      - ../../.env.production
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set POSTGRES_HOST in .env.production}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_AUTH_MODE: iam
+      POSTGRES_SSL_ROOT_CERT: certs/AmazonRootCA1.pem
+      AWS_REGION: ${AWS_REGION:-us-east-2}
+      REDIS_HOST: redis
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env.production}
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ${DOCKERHUB_REPOSITORY:?Set DOCKERHUB_REPOSITORY}:frontend-${IMAGE_TAG:?Set IMAGE_TAG}
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  uploads_data:

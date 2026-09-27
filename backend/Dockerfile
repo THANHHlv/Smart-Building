@@ -25,6 +25,7 @@ COPY --from=builder /install /usr/local
 COPY . .
 
 # Own files by appuser
+RUN mkdir -p /app/uploads
 RUN chown -R appuser:appuser /app
 
 USER appuser

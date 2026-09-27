@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-ssr/
+.env.*
+.env
+.git/
+.cache/
+.vscode/
+.idea/
+coverage/
+.oxlintrc.cache
+.oxlintrc.json
+.gitignore
+README.md
+*.log

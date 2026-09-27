@@ -15,6 +15,7 @@ python-multipart>=0.0.18
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0
 alembic==1.14.1
+awscli==1.46.1
 
 # --- Cache ---
 redis==5.2.1
