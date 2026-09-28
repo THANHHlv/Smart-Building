@@ -92,3 +92,58 @@ jobs:
           context: ./${{ matrix.component }}
           push: true
           tags: ${{ vars.DOCKERHUB_REPOSITORY }}:${{ matrix.component }}-${{ github.sha }}
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ec2-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-2
+      EC2_INSTANCE_ID: i-0ac056f3c25c1949a
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::473247067977:role/smart-building-github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: smart-building-${{ github.run_id }}
+          role-duration-seconds: 1800
+          allowed-account-ids: '473247067977'
+      - name: Deploy the published commit through SSM
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          command_id=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name SmartBuildingDeploy \
+            --parameters "ImageTag=$IMAGE_TAG" \
+            --timeout-seconds 60 \
+            --comment "Deploy GitHub commit $IMAGE_TAG" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $command_id"
+          for attempt in $(seq 1 180); do
+            if result=$(aws ssm get-command-invocation --instance-id "$EC2_INSTANCE_ID" --command-id "$command_id" --output json 2>/tmp/ssm-error); then
+              status=$(jq -r '.Status' <<< "$result")
+              case "$status" in
+                Success)
+                  jq -r '.StandardOutputContent' <<< "$result"
+                  exit 0 ;;
+                Failed|Cancelled|TimedOut|Cancelling)
+                  jq -r '.StandardOutputContent, .StandardErrorContent' <<< "$result"
+                  exit 1 ;;
+              esac
+            elif ! grep -q InvocationDoesNotExist /tmp/ssm-error; then
+              cat /tmp/ssm-error
+              exit 1
+            fi
+            sleep 5
+          done
+          echo 'SSM monitoring timed out; check the command before retrying.'
+          exit 1

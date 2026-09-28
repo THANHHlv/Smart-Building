@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Deploy a published Smart Building main commit using the reviewed host script",
+  "parameters": {
+    "ImageTag": {
+      "type": "String",
+      "description": "Full commit SHA published to Docker Hub",
+      "allowedPattern": "^[0-9a-f]{40}$",
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [{
+    "action": "aws:runShellScript",
+    "name": "deploy",
+    "inputs": {
+      "timeoutSeconds": "900",
+      "runCommand": [
+        "set -eu",
+        "bash /opt/smart-building-deploy/deploy-release.sh \"$SSM_ImageTag\""
+      ]
+    }
+  }]
+}

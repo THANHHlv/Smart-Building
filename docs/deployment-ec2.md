@@ -2,8 +2,8 @@
 
 This deployment uses Docker Hub images for the backend and frontend, Redis in
 Docker Compose, and the existing Aurora PostgreSQL Express cluster. The Compose
-file does not create another PostgreSQL database. GitHub Actions currently tests,
-builds, and publishes images; automatic EC2 rollout is not configured yet.
+file does not create another PostgreSQL database. GitHub Actions tests, builds,
+publishes images, and deploys main releases using OIDC and a restricted SSM command.
 
 ## Known AWS resources
 
@@ -20,12 +20,90 @@ builds, and publishes images; automatic EC2 rollout is not configured yet.
 - Aurora cluster resource ID: `cluster-NPTLGZA5XZYTHTYRSDMGL5HDG4`
 - Aurora database/user: `postgres` / `postgres`, port `5432`, IAM authentication
 
+### Initial rollout evidence (2026-09-28)
+
+SSM command `92b7fd8c-7ef1-48b3-aa27-defcbcefa94a` completed with exit code 0.
+The deployed image commit is `fb0cbf74448d69b201d6187871f4251866e57202`.
+The working checkout is `/opt/smart-building`; the Compose project is
+`smart-building`. Backend, frontend, and Redis reported healthy. The frontend
+listens on EC2 loopback `127.0.0.1:8080`; public HTTPS is not configured.
+
+- EC2 role credentials were verified from the backend image.
+- Aurora migration marker `b3c4d5e6f7a8` matched the image migration head.
+- Read-only counts: buildings = 1, users = 64, devices = 466. These have not been
+  compared with the source database, so the data transfer is not fully verified.
+- `/ready` returned `ready` / `database: connected`. Its `redis: not_configured`
+  field is a default schema value and does not check Redis connectivity.
+- The initial database connection had two timeout retries before succeeding.
+- At rollout, backend memory was 118.5 MiB, frontend 5.152 MiB, Redis 4.039 MiB;
+  root disk had 3.1 GiB available. These are a snapshot, not load-test results.
+
+No database migrations or public network rule changes were applied.
+
 Aurora Express uses a public Internet Access Gateway and is outside the EC2 VPC
 by design. The EC2 host therefore needs outbound Internet access and must be
 allowed to connect to the cluster. There is no VPC peering step for this cluster.
 Do not add inbound port 5432 to the EC2 security group. Check the Aurora
-cluster's access controls separately. Keep the frontend bound to loopback until
-HTTPS and a stable address or domain are available.
+cluster's access controls separately. The Compose frontend stays on loopback;
+the host Nginx proxy exposes HTTP for testing through the public IP.
+
+## Public HTTP and future HTTPS
+
+`http://3.145.19.43/` and `/ready` returned HTTP 200 on 2026-09-28.
+Host Nginx listens on port 80 and forwards to `127.0.0.1:8080`.
+Backend port 8000 and Redis are not published. The host proxy replaces incoming
+forwarded headers; the frontend preserves the HTTP/HTTPS scheme for the backend.
+Same-origin `/api/v1` requests need no additional CORS origins.
+
+Reviewed configuration: `deployment/nginx/smart-building-http.conf`.
+The root installer is `deployment/nginx/configure-http.sh`; it validates Nginx
+before reloading and refuses to replace an existing HTTPS site with HTTP.
+Port 443 has a security-group rule but does not serve HTTPS yet. Use HTTP for
+initial testing; configure TLS before using real credentials or live payments.
+
+When a domain is available:
+
+1. Point its DNS A record to the EC2 public address. Stop/start can change this
+   address; choose a stable address before relying on DNS.
+2. Install Certbot with its Nginx plugin following the official Ubuntu/Nginx
+   instructions and obtain a certificate for that domain.
+3. Use `deployment/nginx/smart-building-https.conf.example` as the reviewed
+   target: replace `DOMAIN`, use the issued certificate, validate with `nginx -t`,
+   reload, and verify HTTPS plus the HTTP redirect and renewal dry run.
+4. Configure any absolute payment return URLs for the HTTPS domain before
+   enabling payments. The template is not active or certificate-tested yet.
+
+Session Manager works without inbound SSH. The current SSH 22 rule can be
+removed when administration uses SSM; keep the EC2 SSM role, agent, outbound
+HTTPS connectivity, and administrator Session Manager permissions. No SSH rule
+was removed during this setup.
+
+## GitHub Actions releases through OIDC and SSM
+
+The IAM role `smart-building-github-deploy-role` trusts only this repository's
+`main` branch, with audience `sts.amazonaws.com`. The trust file includes both
+the legacy subject and the immutable owner/repository ID subject used by newer
+GitHub repositories. No AWS access key is stored in GitHub.
+
+The role may send only `SmartBuildingDeploy` to this EC2 instance and read command
+results. It cannot send the generic `AWS-RunShellScript` document. The custom
+document accepts only a 40-character lowercase commit SHA and calls the
+root-owned `/opt/smart-building-deploy/deploy-release.sh` outside the checkout.
+IAM and SSM definitions are under `deployment/aws/`.
+
+After tests and image publication pass, the workflow assumes the role, submits
+the command, and waits for its result. The host serializes releases, rejects
+commits other than current `origin/main`, pulls commit-tagged images, checks the
+Aurora migration head without changing schema, and waits for Compose health
+and HTTP readiness. A failed release restores the previous checkout and private
+environment; after activation it also starts and checks the previous images.
+Uploads remain in the existing volume. Deployment cannot automatically apply
+schema migrations; review those separately.
+
+Changes to the privileged host release script, custom document, or IAM policies
+need administrator review and installation through SSM. An ordinary GitHub
+release does not replace those controls. Rollback is implemented; failure
+recovery has not yet been exercised against this EC2 instance.
 
 ## AWS prerequisites
 
@@ -101,12 +179,40 @@ a restore procedure separately.
 
 ## Manual deployment after prerequisites pass
 
+### Automated initial rollout through SSM
+
+The local `deployment/docker/invoke-ec2-bootstrap.ps1` script sends
+`bootstrap-ec2.sh` to the known instance through SSM Run Command. Authenticate
+the AWS CLI on the Windows workstation (not EC2) using a temporary console
+session, then run from the repository root:
+
+```powershell
+aws login --profile smart-building-deploy --region us-east-2
+./deployment/docker/invoke-ec2-bootstrap.ps1 -Profile smart-building-deploy
+```
+
+The signed-in identity needs SSM read and Run Command permissions for the target
+instance. The wrapper checks the AWS account and SSM status. It returns a command
+ID and a command for inspecting the result; submission alone is not deployment
+success. No local AWS credentials are transmitted to EC2.
+
+The remote script uses `/opt/smart-building`, checks out the exact image commit,
+creates a private `.env.production` file, preserves its secret on retries, pulls
+the images, verifies EC2 role credentials inside the container, and compares the
+Aurora migration marker with the image's migration heads before starting Compose.
+It reports representative row counts but does not verify them against the source.
+It does not apply migrations or open public network ports. The final gate is an
+HTTP request to `/ready`. This script is for initial rollout; automatic release
+rollback and GitHub-to-SSM deployment are not configured by it.
+
+### Manual alternative
+
 Use a checkout of this repository on EC2. Copy `.env.production.example` to
 `.env.production` on the host, fill in `DOCKERHUB_REPOSITORY`, a published
 `IMAGE_TAG` commit SHA, a strong `SECRET_KEY`, and real frontend origins/URLs.
 Keep `.env.production` out of Git and readable only by the deployment user.
-Until a domain and TLS are configured, leave `CORS_ORIGINS=[]` and keep the web
-port on loopback. Configure `VNPAY_RETURN_URL` before enabling live payments.
+Leave `CORS_ORIGINS=[]` for same-origin requests and keep the Compose web
+port on loopback behind the host proxy. Configure `VNPAY_RETURN_URL` before enabling live payments.
 If the Docker Hub repository is private, run `docker login` on EC2 using a
 read-only access token. Then run from the repository root:
 
@@ -127,8 +233,8 @@ reach the container. If it cannot reach instance metadata, inspect the IMDSv2
 response hop limit.
 If it fails, inspect `docker compose ... logs backend` without exposing tokens.
 Verify an application request and the restored row counts before sending users
-to the service. The frontend binds to `127.0.0.1:8080` by default; add a TLS
-reverse proxy and stable DNS/EIP before making it public.
+to the service. The frontend binds to `127.0.0.1:8080` by default; the host proxy
+provides public HTTP for initial testing and HTTPS after a domain is configured.
 
 To verify the migration marker and representative row counts through the same
 container configuration, run this read-only check from the repository root:

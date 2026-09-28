@@ -1,4 +1,4 @@
-# EC2 deployment using Aurora PostgreSQL. Bind the web service to loopback until HTTPS is configured.
+# EC2 deployment using Aurora PostgreSQL. Keep the web service on loopback behind the host proxy.
 # Run from the repository root with: docker compose --env-file .env.production \
 #   -f deployment/docker/docker-compose.ec2.yml up -d
 services:
@@ -26,6 +26,8 @@ services:
       POSTGRES_SSL_ROOT_CERT: certs/AmazonRootCA1.pem
       AWS_REGION: ${AWS_REGION:-us-east-2}
       REDIS_HOST: redis
+      # Backend is internal-only; proxy headers are sanitized by the host proxy.
+      FORWARDED_ALLOW_IPS: "*"
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env.production}
     volumes:
       - uploads_data:/app/uploads
