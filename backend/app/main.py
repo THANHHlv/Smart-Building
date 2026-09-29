@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.health import router as health_router
 from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
+from app.core.database import DatabaseConnectionUnavailable
 from app.core.logging import get_logger, setup_logging
 
 settings = get_settings()
@@ -145,6 +146,14 @@ def create_app() -> FastAPI:
     )
 
     # --- Global exception handler ---
+    @app.exception_handler(DatabaseConnectionUnavailable)
+    async def database_connection_unavailable(request: Request, exc: DatabaseConnectionUnavailable):
+        logger.warning("database_connection_unavailable", path=request.url.path, error_type=type(exc).__name__)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database temporarily unavailable. Please try again shortly."},
+        )
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logger.exception(

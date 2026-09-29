@@ -15,6 +15,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { startVisiblePolling } from '../services/visiblePolling';
 import { MOTION_SPRINGS } from '../tokens/motionTokens';
 import type {
   NotificationCategory,
@@ -54,12 +55,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
   };
 
   useEffect(() => {
-    fetchNotifications(activeCategory);
-    // Poll every 30 seconds for live notifications
-    const interval = setInterval(() => {
-      fetchNotifications(activeCategory);
-    }, 30000);
-    return () => clearInterval(interval);
+    return startVisiblePolling(() => fetchNotifications(activeCategory), 30000);
   }, [activeCategory]);
 
   // Click outside listener to close dropdown

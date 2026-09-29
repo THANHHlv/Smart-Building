@@ -31,6 +31,9 @@ async def readiness_check(response: Response, db: AsyncSession = Depends(get_db)
     except Exception as exc:
         logger.warning("readiness_database_unavailable", error_type=type(exc).__name__)
         db_status = "unavailable"
+    finally:
+        # This probe is read-only, including on failure. Do not commit SELECT 1.
+        await db.rollback()
 
     overall = "ready" if db_status == "connected" else "not_ready"
     if overall != "ready":

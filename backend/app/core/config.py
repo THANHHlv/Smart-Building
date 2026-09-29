@@ -7,6 +7,7 @@ Loads settings from environment variables using pydantic-settings.
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +40,11 @@ class Settings(BaseSettings):
     postgres_password: str = "postgres"
     postgres_auth_mode: Literal["password", "iam"] = "password"
     postgres_ssl_root_cert: str | None = None
+    # IAM defaults to disconnecting idle sessions so Aurora can auto-pause.
+    postgres_pool_mode: Literal["auto", "null", "pooled"] = "auto"
+    postgres_connect_timeout_seconds: float = Field(default=35, gt=0, le=50)
+    postgres_connect_budget_seconds: float = Field(default=50, gt=0, le=50)
+    postgres_connect_attempts: int = Field(default=3, ge=1, le=3)
     aws_region: str = "us-east-2"
     aws_cli_path: str = "aws"
     test_database_url: str | None = None

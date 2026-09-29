@@ -26,6 +26,7 @@ import { AnimationShowcase } from './components/AnimationShowcase';
 import { ToastProvider } from './components/ui/Toast';
 import { createPageTransitionVariants } from './tokens/motionTokens';
 import { api, clearAuthToken, restoreAuthToken, setAuthToken, setOnAuthError } from './services/api';
+import { startVisiblePolling } from './services/visiblePolling';
 import type {
   AiSuggestedAction,
   Alert,
@@ -322,10 +323,7 @@ export const App: React.FC = () => {
   // Auto refresh interval (every 5 seconds)
   useEffect(() => {
     if (!autoRefresh || !isAuthenticated) return;
-    const timer = setInterval(() => {
-      loadData();
-    }, 5000);
-    return () => clearInterval(timer);
+    return startVisiblePolling(loadData, 5000, false);
   }, [autoRefresh, isAuthenticated, loadData]);
 
   // Role access guard for admin pages

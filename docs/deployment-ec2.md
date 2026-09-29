@@ -156,8 +156,8 @@ Create one Docker Hub repository. Set GitHub Actions variable
 `main` run backend tests, frontend checks, and both Docker builds. A passing
 `main` run publishes `backend-<full commit SHA>` and `frontend-<full commit SHA>`.
 The backend Ruff check is not a CI gate yet because existing lint violations
-remain. Publishing requires the Docker Hub variable and secrets. No deployment
-to EC2 is currently triggered by the workflow.
+remain. Publishing requires the Docker Hub variable and secrets. Deployment
+to EC2 is triggered for passing published main builds through OIDC and SSM.
 
 ## Database verification before rollout
 
@@ -227,6 +227,9 @@ curl --fail http://127.0.0.1:8080/ready
 
 `/health` checks the backend process. `/ready` returns HTTP 503 when its database
 query fails. A successful `/ready` checks connectivity only, not restored data.
+Use `/health` for recurring uptime checks: `/ready` can resume an idle Aurora
+instance. See [Aurora auto-pause](aurora-auto-pause.md) for the audit, connection
+settings and pause/resume verification procedure.
 The `sts get-caller-identity` command should show account `473247067977` and
 an assumed role based on `smart-building-ec2-role`; it checks that credentials
 reach the container. If it cannot reach instance metadata, inspect the IMDSv2

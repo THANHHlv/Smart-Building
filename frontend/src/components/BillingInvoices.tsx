@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Receipt, Zap, Droplets, Building2, Car, Wrench, Package, X, ChevronRight,
@@ -6,6 +6,7 @@ import {
   FileSpreadsheet, CheckSquare, Square, Loader2, Send
 } from 'lucide-react';
 import { api } from '../services/api';
+import { startVisiblePolling } from '../services/visiblePolling';
 import type { BulkJob, InvoiceDetail, InvoiceListItem, PendingManualConfirmation } from '../types';
 import { ReportExportModal } from './ReportExportModal';
 import { BillingRateModal } from './BillingRateModal';
@@ -65,6 +66,8 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [activeJob, setActiveJob] = useState<BulkJob | null>(null);
+  const stopJobPolling = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopJobPolling.current?.(), []);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
@@ -143,12 +146,13 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
       setActiveJob(job);
 
       // Poll job progress
-      const pollTimer = setInterval(async () => {
+      stopJobPolling.current?.();
+      stopJobPolling.current = startVisiblePolling(async () => {
         try {
           const status = await api.getBulkJobStatus(job.id);
           setActiveJob(status);
           if (status.status === 'completed' || status.status === 'failed') {
-            clearInterval(pollTimer);
+            stopJobPolling.current?.();
             setIsGeneratingBulk(false);
             loadInvoices();
             setActionFeedback(
@@ -159,10 +163,10 @@ export const BillingInvoices: React.FC<BillingInvoicesProps> = ({
             setTimeout(() => setActionFeedback(null), 5000);
           }
         } catch {
-          clearInterval(pollTimer);
+          stopJobPolling.current?.();
           setIsGeneratingBulk(false);
         }
-      }, 1500);
+      }, 1500, false);
     } catch (err: any) {
       setIsGeneratingBulk(false);
       setActionFeedback(err.message || 'Lỗi khi khởi tạo phát hành hóa đơn hàng loạt.');

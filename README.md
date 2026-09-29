@@ -74,6 +74,9 @@ Run `aws login --region us-east-2` with an identity allowed to connect to the da
 
 ### API Documentation
 
+For Aurora idle connection behavior, deployment review and pause/resume validation,
+see [Aurora auto-pause runbook](docs/aurora-auto-pause.md).
+
 Once running, visit:
 
 - Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
