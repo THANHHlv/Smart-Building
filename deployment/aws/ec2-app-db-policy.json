@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "rds-db:connect",
+      "Resource": "arn:aws:rds-db:us-east-2:473247067977:dbuser:cluster-NPTLGZA5XZYTHTYRSDMGL5HDG4/smart_building_app"
+    }
+  ]
+}

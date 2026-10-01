@@ -29,6 +29,11 @@ async def list_devices(
     service = DeviceService(db)
     # Non-privileged residents can only see devices assigned to their own apartment
     if _current_user.role not in ("admin", "technician"):
+        if _current_user.apartment_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản chưa được gán căn hộ",
+            )
         apartment_id = _current_user.apartment_id
     result = await service.list(page=page, page_size=page_size, apartment_id=apartment_id)
     result.items = [DeviceResponse.model_validate(d) for d in result.items]
@@ -134,4 +139,3 @@ async def control_device(
     await db.commit()
     await db.refresh(device)
     return device
-

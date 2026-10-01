@@ -134,6 +134,28 @@ def require_permission(permission_code: str):
     return _permission_dependency
 
 
+async def get_sensor_read_scope(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> UUID | None:
+    """Return a resident's apartment, or None for authorized operations staff."""
+    if current_user.role == "resident" and not current_user.is_superuser:
+        if current_user.apartment_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản cư dân chưa được gán căn hộ",
+            )
+        return current_user.apartment_id
+
+    permissions = await fetch_user_permissions(current_user, db)
+    if "*" in permissions or "sensor.read" in permissions:
+        return None
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Bạn không có quyền xem dữ liệu cảm biến",
+    )
+
+
 def require_role(*role_names: str):
     """Dependency factory checking whether the current user holds at least one of the specified roles."""
 

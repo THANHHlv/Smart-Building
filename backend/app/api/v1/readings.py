@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_admin, require_permission
+from app.api.deps import get_sensor_read_scope, require_admin
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.common import MessageResponse, PaginatedResponse
@@ -42,7 +42,7 @@ async def create_readings_batch(
 
 @router.get("", response_model=PaginatedResponse)
 async def query_readings(
-    _current_user: Annotated[User, Depends(require_permission("sensor.read"))],
+    apartment_scope: Annotated[UUID | None, Depends(get_sensor_read_scope)],
     device_id: UUID | None = Query(default=None),
     metric: str | None = Query(default=None),
     start_time: datetime | None = Query(default=None),
@@ -64,6 +64,7 @@ async def query_readings(
         end_time=end_time,
         page=page,
         page_size=page_size,
+        apartment_id=apartment_scope,
     )
     result.items = [ReadingResponse.model_validate(r) for r in result.items]
     return result
@@ -72,7 +73,7 @@ async def query_readings(
 @router.get("/device/{device_id}", response_model=PaginatedResponse)
 async def get_device_readings(
     device_id: UUID,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    apartment_scope: Annotated[UUID | None, Depends(get_sensor_read_scope)],
     metric: str | None = Query(default=None),
     start_time: datetime | None = Query(default=None),
     end_time: datetime | None = Query(default=None),
@@ -81,11 +82,11 @@ async def get_device_readings(
     db: AsyncSession = Depends(get_db),
 ):
     """Get sensor readings for a specific device."""
-    if _current_user.role not in ("admin", "technician"):
+    if apartment_scope is not None:
         from app.services.device_service import DeviceService
         dev_svc = DeviceService(db)
         dev = await dev_svc.get_by_id(device_id)
-        if not dev or (_current_user.apartment_id and dev.apartment_id != _current_user.apartment_id):
+        if not dev or dev.apartment_id != apartment_scope:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bạn không có quyền xem dữ liệu cảm biến của thiết bị ngoài căn hộ của mình",

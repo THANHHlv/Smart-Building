@@ -1,10 +1,15 @@
-# Replace DOMAIN after DNS resolves to EC2 and the certificate has been issued.
+# Replace DOMAIN with the verified DNS hostname or public IPv4 after certificate issuance.
 # Keep HTTP configuration active until these certificate files exist.
 server {
     listen 80;
     listen [::]:80;
     server_name DOMAIN;
-    location / { return 301 https://$host$request_uri; }
+    server_tokens off;
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/lib/letsencrypt;
+        default_type text/plain;
+    }
+    location / { return 301 https://DOMAIN$request_uri; }
 }
 
 server {
@@ -15,6 +20,7 @@ server {
     ssl_certificate /etc/letsencrypt/live/DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/DOMAIN/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=86400" always;
     client_max_body_size 20m;
 
     location / {

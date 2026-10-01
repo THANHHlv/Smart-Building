@@ -5,9 +5,11 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.logging import get_logger
 from app.models.sensor_reading import SensorReading
+from app.models.device import Device
 from app.repositories.reading_repo import ReadingRepository
 from app.schemas.common import PaginatedResponse
 from app.schemas.reading import ReadingCreate
@@ -74,10 +76,17 @@ class ReadingService:
         end_time: datetime | None = None,
         page: int = 1,
         page_size: int = 50,
+        apartment_id: UUID | None = None,
     ) -> PaginatedResponse:
         """Query readings with optional filters."""
         offset = (page - 1) * page_size
         filters = []
+        if apartment_id is not None:
+            filters.append(
+                SensorReading.device_id.in_(
+                    select(Device.id).where(Device.apartment_id == apartment_id)
+                )
+            )
         if device_id:
             filters.append(SensorReading.device_id == device_id)
         if metric:

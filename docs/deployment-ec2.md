@@ -49,6 +49,10 @@ the host Nginx proxy exposes HTTP for testing through the public IP.
 
 ## Public HTTP and future HTTPS
 
+The reviewed activation procedure and runtime database cutover are now documented
+in [Step 1 security hardening](security-hardening.md). These prepared scripts do
+not change the historical deployment evidence below.
+
 `http://3.145.19.43/` and `/ready` returned HTTP 200 on 2026-09-28.
 Host Nginx listens on port 80 and forwards to `127.0.0.1:8080`.
 Backend port 8000 and Redis are not published. The host proxy replaces incoming
